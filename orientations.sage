@@ -2,14 +2,13 @@ from sage.graphs.graph import Graph
 from sage.graphs.orientations import random_orientation
 
 class CycleCocycleSystem(Graph):
-    def __init__(self, inputGraph, _pic = None, _base_orientation = None, _base_edge = None, _base_vertex = None):
+    def __init__(self, inputGraph, _base_orientation = None, _base_edge = None, _base_vertex = None):
         assert type(inputGraph) == sage.graphs.graph.Graph, "Input is not a graph."
         assert not inputGraph.is_directed(), "Graph is directed."
         assert inputGraph.is_biconnected(), "Graph is not 2-edge connected."
         ad = inputGraph.adjacency_matrix()
         Graph.__init__(self, ad)
-        if _pic == None:
-            self._pic = Sandpile(self)
+        self._pic = Sandpile(self)
         if _base_orientation == None:
             self._base_orientation = self.random_orientation()
         _big_theta_div = None
@@ -24,9 +23,6 @@ class CycleCocycleSystem(Graph):
     # returns the underlying graph.
     def get_graph(self):
         return Graph(self.adjacency_matrix())
-
-    def picard_group(self):
-        return self._pic
 
     def _repr_(self):
         return "A graph with a cycle-cocycle reversal system"
@@ -67,8 +63,8 @@ class CycleCocycleSystem(Graph):
         assert div.deg() == 0, "Only divisors of degree zero can act on orientations."
         D = SandpileDivisor(self._pic, div.copy())
         new_orientation = orientation.copy()
-        D_pos = get_pos_part(D, False)
-        D_neg = get_pos_part(-D, False)
+        D_pos = div_pos(self._pic, D, False)
+        D_neg = div_pos(self._pic, -D, False)
         for i in range(len(D_pos)):
             new_orientation = self._gen_action(new_orientation, D_neg[i], D_pos[i])
         return new_orientation
@@ -114,9 +110,9 @@ class CycleCocycleSystem(Graph):
     def is_theta_char_divisor(self, div):
         return D.is_linearly_equivalent(self.div_op(D))
 
-def get_pos_part(div, dict_format = True):
+def div_pos(pic, div, dict_format = True):
     if dict_format:
-        return SandpileDivisor(self._pic, {v: max(0, div[v]) for v in div.keys()})
+        return SandpileDivisor(pic, {v: max(0, div[v]) for v in div.keys()})
     output_list = []
     for v in div.keys():
         if div[v] > 0:
