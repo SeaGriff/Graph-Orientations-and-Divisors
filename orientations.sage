@@ -20,8 +20,15 @@ class CycleCocycleSystem(Graph):
     def set_big_theta_orientation(self, orientation):
         _big_theta_orientation = orientation
 
+    def linking_add(self, A, B):
+        assert self._big_theta_div != None, "Must set big theta divisor first."
+        return A + B - self._big_theta_div
+
+    def linking_orientation_add(self, U, W):
+        return self.linear_orientation_class(self.linking_add(self.chern_class(A), self.chern_class(B)))
+
     # returns the underlying graph.
-    def get_graph(self):
+    def underlying_graph(self):
         return Graph(self.adjacency_matrix())
 
     def _repr_(self):
@@ -96,19 +103,20 @@ class CycleCocycleSystem(Graph):
     # iterates through deg g-1 picard_representatives and returns the first theta char found.
     # only intended to be used in the case there is a unique such.
     # if there is no theta char, returns False
-    def big_theta_char_divisor(self):
+    def big_theta_divisor(self):
         for D in self._pic.picard_representatives(self._pic.genus() - 1):
-        if self.is_theta_char_divisor(D):
-            return D
+            if self.is_theta_char_divisor(D):
+                return D
         return False
 
-    def big_theta_char_orientation(self):
-        return self.linear_orientation_class(self.big_theta_char_divisor())
-
-
+    def big_theta_orientation(self):
+        result = self.big_theta_char_divisor()
+        if result == False:
+            return False
+        return self.linear_orientation_class(result)
 
     def is_theta_char_divisor(self, div):
-        return D.is_linearly_equivalent(self.div_op(D))
+        return div.is_linearly_equivalent(self.div_op(div))
 
 def div_pos(pic, div, dict_format = True):
     if dict_format:
