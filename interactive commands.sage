@@ -1,7 +1,8 @@
 def extract_theta_chars_from_list_with_counting(l):
     for i in range(len(l)):
-        div = l[i].big_theta_char_divisor()
-        if i % 150 == 0:
+        if i % 50 == 0:
             print(i)
-        if div == False:
-            print("thetaless at " + str(i))
+        theta_char = l[i].get_theta_char_orientation()
+        if not l[i].is_theta_char(theta_char):
+            print("error at " + str(i))
+            print("g6 string ") + l[i].graph6_string()

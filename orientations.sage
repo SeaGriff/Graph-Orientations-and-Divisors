@@ -1,5 +1,6 @@
 from sage.graphs.graph import Graph
 from sage.graphs.orientations import random_orientation
+import itertools
 
 class CycleCocycleSystem(Graph):
     def __init__(self, inputGraph, _base_orientation = None, _base_edge = None, _base_vertex = None):
@@ -14,14 +15,24 @@ class CycleCocycleSystem(Graph):
         _big_theta_div = None
         _big_theta_orientation = None
 
-    def set_big_theta_div(self, div):
-        self._big_theta_div = div_op
 
-    def set_big_theta_orientation(self, orientation):
-        _big_theta_orientation = orientation
+    def _repr_(self):
+        return "A graph with a cycle-cocycle reversal system"
+
+    def set_big_theta(self, BT):
+        div = None
+        ori = None
+        if type(BT) != 'sage.sandpiles.sandpile.SandpileDivisor':
+            div = self.chern_class(BT)
+            ori = BT
+        else:
+            div = BT
+            ori = self.linear_orientation_class(BT)
+        self._big_theta_div = div
+        self._big_theta_orientation = ori
 
     def linking_add(self, A, B):
-        assert self._big_theta_div != None, "Must set big theta divisor first."
+        assert self._big_theta_div != None, "Must set big theta first."
         return A + B - self._big_theta_div
 
     def linking_orientation_add(self, U, W):
@@ -30,9 +41,6 @@ class CycleCocycleSystem(Graph):
     # returns the underlying graph.
     def underlying_graph(self):
         return Graph(self.adjacency_matrix())
-
-    def _repr_(self):
-        return "A graph with a cycle-cocycle reversal system"
 
     # returns the Chern class of an orientation.
     def chern_class(self, orientation):
@@ -88,11 +96,11 @@ class CycleCocycleSystem(Graph):
     def div_op(self, div):
         return self._pic.canonical_divisor() - div
 
-    # Returns a list of all theta characteristic divisors for G
+    # Returns a list of all theta characteristic divisors for G. Slow
     def theta_char_divisors(self):
         return [D for D in self._pic.picard_representatives(self._pic.genus() - 1) if D.is_linearly_equivalent(self.div_op(D))]
 
-    # Returns a list of all theta characteristic divisors for G
+    # Returns a list of all theta characteristic orientations for G. Slow
     def theta_char_orientations(self):
         return [self.linear_orientation_class(D) for D in self.theta_char_divisors()]
 
@@ -100,23 +108,19 @@ class CycleCocycleSystem(Graph):
     def orientation_representatives(self):
         return [self.linear_orientation_class(D) for D in self._pic.picard_representatives(self._pic.genus() - 1)]
 
-    # iterates through deg g-1 picard_representatives and returns the first theta char found.
-    # only intended to be used in the case there is a unique such.
-    # if there is no theta char, returns False
-    def big_theta_divisor(self):
-        for D in self._pic.picard_representatives(self._pic.genus() - 1):
-            if self.is_theta_char_divisor(D):
-                return D
-        return False
+    # returns a theta characteristic divisor
+    def get_theta_char_div(self):
+        return self.chern_class(self.get_theta_char_orientation())
 
-    def big_theta_orientation(self):
-        result = self.big_theta_char_divisor()
-        if result == False:
-            return False
-        return self.linear_orientation_class(result)
+    # returns a theta characteristic orientation
+    def get_theta_char_orientation(self, show=False):
+        return partition_to_theta_char_orientation(self.underlying_graph(), eulerian_bipartition(self.underlying_graph()), show)
 
-    def is_theta_char_divisor(self, div):
-        return div.is_linearly_equivalent(self.div_op(div))
+    def is_theta_char(self, TC):
+        if type(TC) != 'sage.sandpiles.sandpile.SandpileDivisor':
+            div = self.chern_class(TC)
+            return div.is_linearly_equivalent(self.div_op(div))
+        return TC.is_linearly_equivalent(self.div_op(TC))
 
 def div_pos(pic, div, dict_format = True):
     if dict_format:
@@ -136,3 +140,62 @@ def reachable_it(G, v, reachable):
     reachable.add(v)
     for w in G.vertex_boundary(reachable):
         reachable_it(G, w, reachable)
+
+# returns a set of vertices V of a graph G,
+# such that G[V] and G[V^c] are eulerian.
+# We have V = V(G) iff the graph has purely even degrees.
+
+def eulerian_bipartition(G, show=False):
+    if G.has_multiple_edges():
+        preprocess_G = Graph([G.vertices(), []])
+        for (v,w) in itertools.combinations(G.vertices(),2):
+            if is_odd(len(G.edge_boundary([v],[w], labels=False))):
+                preprocess_G.add_edge(v,w)
+        result = eulerian_bipartition_recur(preprocess_G, ([],[]))
+    else:
+        result = eulerian_bipartition_recur(G, ([], []))
+    if show:
+        G.show(vertex_colors={'b': result[0], 'r': result[1]})
+    return result[0]
+
+def eulerian_bipartition_recur(G, partition):
+    for v in G.vertices():
+        if is_odd(G.degree(v)):
+            smallG = G.copy()
+            induct_down(G, smallG, v)
+            partition = eulerian_bipartition_recur(smallG, partition)
+            if is_odd(len(set(partition[0]).intersection(G.neighbors(v)))):
+                partition[1].extend([v])
+            else:
+                partition[0].extend([v])
+            return partition
+    return (G.vertices(), [])
+
+def induct_down(G, smallG, v):
+    smallG.delete_vertex(v)
+    neighbs = G.neighbors(v)
+    for vertex_pair in itertools.combinations(neighbs, 2):
+        if G.has_edge(vertex_pair[0], vertex_pair[1]):
+            smallG.delete_edge(vertex_pair[0], vertex_pair[1])
+        else:
+            smallG.add_edge(vertex_pair[0], vertex_pair[1])
+
+# Accepts a graph with a nonempty subset of the vertices. The subset and complement are
+# assumed to induce two Eulerian subgraphs.
+# Returns an orientation which is Eulerian on the two subgraphs and has a consistently
+# oriented cut between them.
+
+def partition_to_theta_char_orientation(G, V, show=False):
+    if set(V) == set(G.vertices()):
+        return G.eulerian_orientation()
+    V_complement = set(G.vertices()) - set(V)
+    G1 = G.subgraph(V).eulerian_orientation()
+    G2 = G.subgraph(V_complement).eulerian_orientation()
+    result = DiGraph([G.vertices(), []], multiedges=G.allows_multiple_edges())
+    result.add_edges(G.edge_boundary(V))
+    result.reverse_edges(result.incoming_edge_iterator(V))
+    result.add_edges(G1.edges())
+    result.add_edges(G2.edges())
+    if show:
+        result.show(vertex_colors={'b': V, 'r': V_complement})
+    return result
