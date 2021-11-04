@@ -4,22 +4,36 @@ import itertools
 
 class CycleCocycleSystem(Graph):
     def __init__(self, inputGraph, _base_orientation = None, _base_edge = None, _base_vertex = None):
+
+        # Error checking
         assert type(inputGraph) == sage.graphs.graph.Graph, "Input is not a graph."
         assert not inputGraph.is_directed(), "Graph is directed."
         assert inputGraph.is_biconnected(), "Graph is not 2-edge connected."
+
+        # Build the graph
         ad = inputGraph.adjacency_matrix()
         Graph.__init__(self, ad)
+
+        # Build associated objects
         self._pic = Sandpile(self)
         if _base_orientation == None:
             self._base_orientation = self.random_orientation()
+        if _base_edge == None:
+            self._base_edge = self.edges()[0]
+        self._matroid = Matroid(self)
+
+        # Unset internal variables
         _big_theta_div = None
         _big_theta_orientation = None
 
-
     def _repr_(self):
-        return "A graph with a cycle-cocycle reversal system"
+        return "A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges".format(len(self.vertices()), len(self.edges()))
 
+    ####### Set attached objects and internal variables
+
+    # Sets the big theta divisor and orientation. Accepts a divisor or orientation.
     def set_big_theta(self, BT):
+        assert self.is_theta_char(BT), "Input must be a theta characteristic"
         div = None
         ori = None
         if type(BT) != 'sage.sandpiles.sandpile.SandpileDivisor':
@@ -31,31 +45,48 @@ class CycleCocycleSystem(Graph):
         self._big_theta_div = div
         self._big_theta_orientation = ori
 
-    def linking_add(self, A, B):
-        assert self._big_theta_div != None, "Must set big theta first."
-        return A + B - self._big_theta_div
+    # Sets the base edge
+    def set_base_edge(self, e):
+        self._base_edge = e
 
-    def linking_orientation_add(self, U, W):
-        return self.linear_orientation_class(self.linking_add(self.chern_class(A), self.chern_class(B)))
+    # Sets the base orientation
+    def set_base_orientation(self, G):
+        self._base_orientation = G
+
+    ####### Retrieve attached objects and internal variables
 
     # returns the underlying graph.
     def underlying_graph(self):
         return Graph(self.adjacency_matrix())
 
-    # returns the Chern class of an orientation.
-    def chern_class(self, orientation):
-        D_add = SandpileDivisor(self._pic, {v:orientation.in_degree(v) for v in self.vertex_iterator()})
-        return D_add - self._pic.all_k_div(1)
-
-    # Takes O(D) of a divisor (currently requires deg D = g-1)
-    def linear_orientation_class(self, div):
-        assert div.deg() == self._pic.genus() - 1, "Currrently can only take O(D) for deg D = g-1."
-        act_by = div - self.chern_class(self.base_orientation())
-        return self.pic_0_action(self._base_orientation, act_by)
-
     # returns the base orientation
     def base_orientation(self):
         return self._base_orientation.copy()
+
+    # Returns a list of all theta characteristic divisors for G. Slow
+    def theta_char_divisors(self):
+        return [D for D in self._pic.picard_representatives(self._pic.genus() - 1) if D.is_linearly_equivalent(self.div_op(D))]
+
+    # Returns a list of all theta characteristic orientations for G. Slow
+    def theta_char_orientations(self):
+        return [self.linear_orientation_class(D) for D in self.theta_char_divisors()]
+
+    # returns a single theta characteristic divisor. Fast
+    def get_theta_char_div(self):
+        return self.chern_class(self.get_theta_char_orientation())
+
+    # returns a single theta characteristic orientation. Fast
+    def get_theta_char_orientation(self, show=False):
+        return partition_to_theta_char_orientation(self.underlying_graph(), eulerian_bipartition(self.underlying_graph()), show
+
+    # Returns a list of representatives for the cycle cocycle system
+    def orientation_representatives(self):
+        return [self.linear_orientation_class(D) for D in self._pic.picard_representatives(self._pic.genus() - 1)]
+
+    ####### Operations on orientations
+
+    def linking_orientation_add(self, U, W):
+        return self.linear_orientation_class(self.linking_add(self.chern_class(A), self.chern_class(B)))
 
     # performs the orientation equivalent of passing to the q-reduced representative of a divisor
     def q_red_orientation(self, orientation, q):
@@ -92,29 +123,28 @@ class CycleCocycleSystem(Graph):
         new_orientation.reverse_edges(P, multiedges = True)
         return new_orientation
 
+    # returns the Chern class of an orientation.
+    def chern_class(self, orientation):
+        D_add = SandpileDivisor(self._pic, {v:orientation.in_degree(v) for v in self.vertex_iterator()})
+        return D_add - self._pic.all_k_div(1)
+
+    ####### Operations on divisors
+
+    # Takes O(D) of a divisor (currently requires deg D = g-1)
+    def linear_orientation_class(self, div):
+        assert div.deg() == self._pic.genus() - 1, "Currrently can only take O(D) for deg D = g-1."
+        act_by = div - self.chern_class(self.base_orientation())
+        return self.pic_0_action(self._base_orientation, act_by)
+
+    def linking_div_add(self, A, B):
+        assert self._big_theta_div != None, "Must set big theta first."
+        return A + B - self._big_theta_div
+
     # Performs the divisor equivalent of flipping all edges in an orientation
     def div_op(self, div):
         return self._pic.canonical_divisor() - div
 
-    # Returns a list of all theta characteristic divisors for G. Slow
-    def theta_char_divisors(self):
-        return [D for D in self._pic.picard_representatives(self._pic.genus() - 1) if D.is_linearly_equivalent(self.div_op(D))]
-
-    # Returns a list of all theta characteristic orientations for G. Slow
-    def theta_char_orientations(self):
-        return [self.linear_orientation_class(D) for D in self.theta_char_divisors()]
-
-    # Returns a list of representatives for the cycle cocycle system
-    def orientation_representatives(self):
-        return [self.linear_orientation_class(D) for D in self._pic.picard_representatives(self._pic.genus() - 1)]
-
-    # returns a theta characteristic divisor
-    def get_theta_char_div(self):
-        return self.chern_class(self.get_theta_char_orientation())
-
-    # returns a theta characteristic orientation
-    def get_theta_char_orientation(self, show=False):
-        return partition_to_theta_char_orientation(self.underlying_graph(), eulerian_bipartition(self.underlying_graph()), show)
+    ####### Misc
 
     def is_theta_char(self, TC):
         if type(TC) != 'sage.sandpiles.sandpile.SandpileDivisor':
