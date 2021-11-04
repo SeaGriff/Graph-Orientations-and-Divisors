@@ -1,3 +1,5 @@
+load("orientations.sage")
+
 def extract_theta_chars_from_list_with_counting(l):
     for i in range(len(l)):
         if i % 50 == 0:

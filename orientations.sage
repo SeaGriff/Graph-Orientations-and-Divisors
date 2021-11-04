@@ -1,20 +1,16 @@
-from sage.graphs.graph import Graph
+import sage.graphs.graph import Graph
 from sage.graphs.orientations import random_orientation
 import itertools
 
 class CycleCocycleSystem(Graph):
-    def __init__(self, inputGraph, base_orientation = None, base_edge = None):
+    def __init__(self, data, base_orientation = None, base_edge = None):
+        # Build the graph
+        Graph.__init__(self, data)
 
         # Error checking
-        assert type(inputGraph) == sage.graphs.graph.Graph, "Input is not a graph."
-        assert not inputGraph.is_directed(), "Graph is directed."
-        assert inputGraph.is_biconnected(), "Graph is not 2-edge connected."
+        assert self.is_biconnected(), "Graph is not 2-edge connected."
 
-        # Build the graph
-        ad = inputGraph.adjacency_matrix()
-        Graph.__init__(self, ad)
-
-        # Unset internal variables
+        # Initialize internal variables
         _big_theta_div = None
         _big_theta_orientation = None
 
