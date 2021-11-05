@@ -1,6 +1,8 @@
-# import
-from sage.graphs.graph import Graph
+""" Builds a cycle-cocycle system on top of a graph and implements associated
+methods, in particular those that relate orientations to divisors. """
+
 import itertools
+from sage.graphs.graph import Graph
 
 
 class CycleCocycleSystem(Graph):
@@ -31,7 +33,7 @@ class CycleCocycleSystem(Graph):
     # Set or retrieve attached objects and internal variables
 
     def set_big_theta_orientation(self, U):
-        """ Sets the big theta divisor and orientation.
+        """ Set the big theta divisor and orientation.
         Accepts an orientation. """
         assert self.is_theta_char_orientation(U), "Input must be a theta \
         characteristic orientation"
@@ -57,7 +59,6 @@ class CycleCocycleSystem(Graph):
         """ returns the underlying graph. """
         return Graph(self.adjacency_matrix())
 
-
     def base_orientation(self):
         """ returns the base orientation """
         return self._base_orientation.copy()
@@ -80,7 +81,8 @@ class CycleCocycleSystem(Graph):
                 1) if self.is_theta_char_div(D)]
 
     def theta_char_orientations(self):
-        """ Returns a list of all theta characteristic orientations for G. Slow """
+        """ Returns a list of all theta characteristic orientations for G.
+        Slow """
         return [self.linear_orientation_class(D) for D in
                 self.theta_char_divisors()]
 
@@ -157,7 +159,8 @@ class CycleCocycleSystem(Graph):
 
     def linear_orientation_class(self, div):
         """ akes O(D) of a divisor (currently requires deg D = g-1) """
-        assert div.deg() == self._pic.genus() - 1, "Currrently can only take O(D) for deg D = g-1."
+        assert div.deg() == self._pic.genus() - 1, "Currrently can only take \
+        O(D) for deg D = g-1."
         act_by = div - self.chern_class(self.base_orientation())
         return self.pic_0_action(self._base_orientation, act_by)
 
@@ -221,6 +224,7 @@ def eulerian_bipartition(G, show=False):
     if show:
         G.show(vertex_colors={'b': result[0], 'r': result[1]})
     return result[0]
+
 
 def eulerian_bipartition_recur(G, partition):
     """  """
