@@ -27,25 +27,26 @@ class CycleCocycleSystem(Graph):
         self._matroid = Matroid(self)
 
     def _repr_(self):
-        return ("A graph with a cycle-cocycle reversal system, on {} vertices \
-        and with {} edges".format(len(self.vertices()), len(self.edges())))
+        return ("""A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges""".format(
+        len(self.vertices()), len(self.edges())))
 
     # Set or retrieve attached objects and internal variables
 
-    def set_big_theta_orientation(self, U):
+    def set_big_theta(self, T, check=True):
         """ Set the big theta divisor and orientation.
-        Accepts an orientation. """
-        assert self.is_theta_char_orientation(U), "Input must be a theta \
-        characteristic orientation"
-        self._big_theta_div = self.chern_class(U)
-        self._big_theta_orientation = U
-
-    def set_big_theta_div(self, D):
-        """ Sets the big theta divisor and orientation. Accepts a divisor. """
-        assert self.is_theta_char_div(D), "Input must be a theta \
-        characteristic divisor"
-        self._big_theta_div = D
-        self._big_theta_orientation = self.linear_orientation_class(D)
+        Accepts a divisor or orientation. """
+        if isinstance(T, DiGraph):
+            if check:
+                assert self.is_theta_char(U), "Input must be a \
+                theta characteristic orientation"
+            self._big_theta_div = self.chern_class(U)
+            self._big_theta_orientation = U
+        else:
+            if check:
+                assert self.is_theta_char(D), "Input must be a theta \
+                characteristic divisor"
+                self._big_theta_div = D
+                self._big_theta_orientation = self.linear_orientation_class(D)
 
     def set_base_edge(self, e):
         """ Sets the base edge """
@@ -78,7 +79,7 @@ class CycleCocycleSystem(Graph):
     def theta_char_divisors(self):
         """ Returns a list of all theta characteristic divisors for G. Slow """
         return [D for D in self._pic.picard_representatives(self._pic.genus() -
-                1) if self.is_theta_char_div(D)]
+                1) if self.is_theta_char(D)]
 
     def theta_char_orientations(self):
         """ Returns a list of all theta characteristic orientations for G.
@@ -88,7 +89,7 @@ class CycleCocycleSystem(Graph):
 
     def sample_theta_char_div(self):
         """ returns a single theta characteristic divisor. Fast """
-        return self.chern_class(self.get_theta_char_orientation())
+        return self.chern_class(self.sample_theta_char_orientation())
 
     def sample_theta_char_orientation(self, show=False):
         """ returns a single theta characteristic orientation. Fast """
@@ -102,6 +103,9 @@ class CycleCocycleSystem(Graph):
 
     # Operations on orientations
 
+    def is_equivalent_orientation(self, U, W):
+        return self.chern_class(U).is_linearly_equivalent(self.chern_class(W))
+
     def linking_orientation_add(self, U, W):
         """  """
         return self.linear_orientation_class(
@@ -113,8 +117,8 @@ class CycleCocycleSystem(Graph):
         self.make_paths(orientation, q)
 
     def make_paths(self, orientation, origin, target=None):
-        """ flips oriented cuts til either every vertex is accessible by an oriented
-        path from q, or if a target vertex is selected until
+        """ flips oriented cuts til either every vertex is accessible by an
+        oriented path from q, or, if a target vertex is selected, until
         the target is accessible. """
         vertex_set = set(self.vertices())
         reachable = reachable_vertices(orientation, origin)
@@ -128,26 +132,25 @@ class CycleCocycleSystem(Graph):
 
     def pic_0_action(self, orientation, div):
         """ Applies a divisor of degree 0 to an orientation according to the
-        # canonical torsor action """
+        canonical torsor action """
         assert div.deg() == 0, "Only divisors of degree zero can act \
             on orientations."
         D = SandpileDivisor(self._pic, div.copy())
-        new_orientation = orientation.copy()
+        new_ori = orientation.copy()
         D_pos = div_pos(self._pic, D, False)
         D_neg = div_pos(self._pic, -D, False)
         for i in range(len(D_pos)):
-            new_orientation = self._gen_action(new_orientation,
-                                               D_neg[i], D_pos[i])
-        return new_orientation
+            new_ori = self._gen_action(new_ori, D_neg[i], D_pos[i])
+        return new_ori
 
     def _gen_action(self, orientation, minusVertex, plusVertex):
-        """ Applies a divisor specifically of the form p - q to an orientation according
-        # to the canonical torsor action """
-        new_orientation = self.make_paths(orientation, plusVertex, minusVertex)
-        P = next(new_orientation.shortest_simple_paths(plusVertex,
+        """ Applies a divisor specifically of the form p - q to an orientation
+        according to the canonical torsor action """
+        new_ori = self.make_paths(orientation, plusVertex, minusVertex)
+        P = next(new_ori.shortest_simple_paths(plusVertex,
                                             minusVertex, report_edges=True))
-        new_orientation.reverse_edges(P, multiedges=True)
-        return new_orientation
+        new_ori.reverse_edges(P, multiedges=True)
+        return new_ori
 
     def chern_class(self, orientation):
         """ returns the Chern class of an orientation. """
@@ -158,7 +161,7 @@ class CycleCocycleSystem(Graph):
     # Operations on divisors
 
     def linear_orientation_class(self, div):
-        """ akes O(D) of a divisor (currently requires deg D = g-1) """
+        """ takes O(D) of a divisor (currently requires deg D = g-1) """
         assert div.deg() == self._pic.genus() - 1, "Currrently can only take \
         O(D) for deg D = g-1."
         act_by = div - self.chern_class(self.base_orientation())
@@ -170,18 +173,19 @@ class CycleCocycleSystem(Graph):
         return A + B - self._big_theta_div
 
     def div_op(self, div):
-        """ Performs the divisor equivalent of flipping all edges in an orientation """
+        """ Performs the divisor equivalent of flipping all
+        edges in an orientation """
         return self._pic.canonical_divisor() - div
 
     # Misc
 
-    def is_theta_char_div(self, D):
+    def is_theta_char(self, T):
         """  """
+        if isinstance(T, DiGraph):
+            D = self.chern_class(T)
+        else:
+            D = T
         return D.is_linearly_equivalent(self.div_op(D))
-
-    def is_theta_char_orientation(self, U):
-        """  """
-        return self.is_theta_char_div(self.chern_class(U))
 
 
 def div_pos(pic, div, dict_format=True):
