@@ -4,6 +4,34 @@ methods, in particular those that relate orientations to divisors. """
 import itertools
 from sage.graphs.graph import Graph
 
+class SuperDiGraph(DiGraph)
+    """ Accepts a DiGraph and implements methods to view it as a super
+    directed graph (a graph where edges may additionally be unoriented, or
+    unoriented in both directions) """
+    def __init__(self, _CCS, data, _bi={}, _unori={}, base_edge=None):
+        DiGraph.__init__(self, data)
+        assert bi.isdisjoint(unori), "Edge cannot be both bioriented and unoriented."
+
+    def bi_set(self):
+        return self._bi
+
+    def unori_set(self):
+        return self.unori
+
+    def underlying_CCS(self):
+        return self._CCS.copy()
+
+    def equivalent_orientations(self, U):
+        return self.chern_class().is_linearly_equivalent(self.chern_class(W))
+
+    def chern_class(self):
+        """ returns the Chern class of the orientation. """
+        D_add = SandpileDivisor(self._CCS.pic(), {v: orientation.in_degree(v)
+                                for v in self._CCS.vertex_iterator()})
+        return D_add - self._CCS.pic().all_k_div(1)
+
+    def is_theta_char(self):
+        return self._CCS.is_theta_char(self)
 
 class CycleCocycleSystem(Graph):
     """ Accepts a graph and returns a cycle-cocycle system """
@@ -60,19 +88,23 @@ class CycleCocycleSystem(Graph):
         """ returns the underlying graph. """
         return Graph(self.adjacency_matrix())
 
+    def pic(self):
+        """ return the picard group of the graph """
+        return self._pic()
+
     def base_orientation(self):
         """ returns the base orientation """
         return self._base_orientation.copy()
 
-    def get_base_edge(self):
+    def base_edge(self):
         """ returns the base edge """
         return self._base_edge
 
-    def get_big_theta_orientation(self):
+    def big_theta_orientation(self):
         """ returns the currently set big theta orientation """
         return self._big_theta_orientation.copy()
 
-    def get_big_theta_divisor(self):
+    def big_theta_divisor(self):
         """ returns the currently set big theta divisor """
         return self._big_theta_div
 
@@ -102,9 +134,6 @@ class CycleCocycleSystem(Graph):
                 in self._pic.picard_representatives(self._pic.genus() - 1)]
 
     # Operations on orientations
-
-    def is_equivalent_orientation(self, U, W):
-        return self.chern_class(U).is_linearly_equivalent(self.chern_class(W))
 
     def linking_orientation_add(self, U, W):
         """  """
@@ -152,12 +181,6 @@ class CycleCocycleSystem(Graph):
         new_ori.reverse_edges(P, multiedges=True)
         return new_ori
 
-    def chern_class(self, orientation):
-        """ returns the Chern class of an orientation. """
-        D_add = SandpileDivisor(self._pic, {v: orientation.in_degree(v)
-                                for v in self.vertex_iterator()})
-        return D_add - self._pic.all_k_div(1)
-
     # Operations on divisors
 
     def linear_orientation_class(self, div):
@@ -181,8 +204,8 @@ class CycleCocycleSystem(Graph):
 
     def is_theta_char(self, T):
         """  """
-        if isinstance(T, DiGraph):
-            D = self.chern_class(T)
+        if isinstance(T, SuperDiGraph):
+            D = T.chern_class()
         else:
             D = T
         return D.is_linearly_equivalent(self.div_op(D))
