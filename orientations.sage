@@ -3,38 +3,95 @@ methods, in particular those that relate orientations to divisors. """
 
 import itertools
 from sage.graphs.graph import Graph
+from copy import copy
 
-class SuperDiGraph(DiGraph)
+class SuperDiGraph(DiGraph):
     """ Accepts a DiGraph and implements methods to view it as a super
     directed graph (a graph where edges may additionally be unoriented, or
     unoriented in both directions) """
-    def __init__(self, _CCS, data, _bi={}, _unori={}, base_edge=None):
-        DiGraph.__init__(self, data)
+    def __init__(self, G, data, bi=set(), unori=set()):
         assert bi.isdisjoint(unori), "Edge cannot be both bioriented and unoriented."
 
-    def bi_set(self):
-        return self._bi
+        DiGraph.__init__(self, data)
 
-    def unori_set(self):
-        return self.unori
+        self._bi, self._unori = bi, unori
+        if isinstance(G, CycleCocycleSystem):
+            self._CCS = G
+        else:
+            self._CCS = CycleCocycleSystem(G)
 
-    def underlying_CCS(self):
+    def __repr__(self):
+        return ("A superorientation on a graph with {} vertices and with {} edges".format(
+        len(self.vertices()), len(self.edges())))
+
+    def copy(self):
+        return SuperDiGraph(self._CCS, self, self._bi, self._unori)
+
+    def biori(self):
+        return self._bi.copy()
+
+    def unori(self):
+        return self._unori.copy()
+
+    def CCS(self):
         return self._CCS.copy()
 
-    def equivalent_orientations(self, U):
+    def set_unori(self, X):
+        assert X.isdisjoint(self._bi), "Edge cannot be both bioriented and unoriented."
+        self._unori = X
+
+    def set_biori(self, X):
+            assert X.isdisjoint(self._unori), "Edge cannot be both bioriented and unoriented."
+            self._bi = X
+
+    def op(self):
+        return SuperDiGraph(self._CCS, self, self._unori, self._bi)
+
+    def is_equivalent(self, U):
         return self.chern_class().is_linearly_equivalent(self.chern_class(W))
+
+    def sources(self):
+        return self._make_algo_graph().sources()
+
+    def unfurl(self, X, check=True):
+        U = self.copy()
+        if check:
+            assert len(self._bi) == 0, "Currently only supports pure partial orientations."
+            assert len(X) != 0, "Input must be nonempty."
+            assert induces_connected_subgraph(Graph(self), X), "Input must induce a connected subgraph."
+        return self._unfurl_it(X, U)
+
+    def _unfurl_it(self, X, U):
+        if set(X).issubset(set(U.sources()):
+            unori_U = Graph(U)
+            X_boundary = unori_U.vertex_boundary(X)
+            for v in X_boundary:
+                
+            return
+        return U
+
+    def _make_algo_graph(self):
+        result = DiGraph(self)
+        result.delete_edges(self._unori)
+        result.add_edges({(e[1], e[0]) for e in self._bi})
+        return result
 
     def chern_class(self):
         """ returns the Chern class of the orientation. """
-        D_add = SandpileDivisor(self._CCS.pic(), {v: orientation.in_degree(v)
-                                for v in self._CCS.vertex_iterator()})
-        return D_add - self._CCS.pic().all_k_div(1)
+        D = self._CCS.pic().all_k_div(-1)
+        for e in self.edges():
+            if e not in self._unori:
+                D[e[1]] += 1
+                if e in self._bi:
+                    D[e[0]] += 1
+        return D
 
     def is_theta_char(self):
         return self._CCS.is_theta_char(self)
 
 class CycleCocycleSystem(Graph):
-    """ Accepts a graph and returns a cycle-cocycle system """
+    """ Accepts a graph and returns a cycle-cocycle system, a graph
+    with methods outputting various data related to the system. """
     def __init__(self, data, base_orientation=None, base_edge=None):
         # Build the graph
         Graph.__init__(self, data)
@@ -43,38 +100,44 @@ class CycleCocycleSystem(Graph):
         assert self.is_biconnected(), "Graph is not 2-edge connected."
 
         # Initialize internal variables
-        _big_theta_div = None
-        _big_theta_orientation = None
+        self._big_theta_div = None
+        self._big_theta_orientation = None
 
         # Build associated objects
         self._pic = Sandpile(self)
         if base_orientation is None:
-            self._base_orientation = self.random_orientation()
+            self._base_orientation = SuperDiGraph(self,
+                                                  self.random_orientation())
+        else:
+            self._base_orientation = SuperDiGraph(self,
+                                                  base_orientation)
         if base_edge is None:
             self._base_edge = self.edges()[0]
-        self._matroid = Matroid(self)
 
     def _repr_(self):
-        return ("""A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges""".format(
+        return ("A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges".format(
         len(self.vertices()), len(self.edges())))
+
+    def copy(self):
+        return CycleCocycleSystem(self, self._base_orientation, self._base_edge)
 
     # Set or retrieve attached objects and internal variables
 
     def set_big_theta(self, T, check=True):
         """ Set the big theta divisor and orientation.
         Accepts a divisor or orientation. """
-        if isinstance(T, DiGraph):
+        if isinstance(T, SuperDiGraph):
             if check:
-                assert self.is_theta_char(U), "Input must be a \
+                assert self.is_theta_char(T), "Input must be a \
                 theta characteristic orientation"
-            self._big_theta_div = self.chern_class(U)
-            self._big_theta_orientation = U
+            self._big_theta_div = T.chern_class()
+            self._big_theta_orientation = T
         else:
             if check:
-                assert self.is_theta_char(D), "Input must be a theta \
+                assert self.is_theta_char(T), "Input must be a theta \
                 characteristic divisor"
-                self._big_theta_div = D
-                self._big_theta_orientation = self.linear_orientation_class(D)
+            self._big_theta_div = T
+            self._big_theta_orientation = self.linear_orientation_class(D)
 
     def set_base_edge(self, e):
         """ Sets the base edge """
@@ -84,13 +147,9 @@ class CycleCocycleSystem(Graph):
         """ Sets the base orientation """
         self._base_orientation = G
 
-    def underlying_graph(self):
-        """ returns the underlying graph. """
-        return Graph(self.adjacency_matrix())
-
     def pic(self):
         """ return the picard group of the graph """
-        return self._pic()
+        return self._pic
 
     def base_orientation(self):
         """ returns the base orientation """
@@ -121,12 +180,13 @@ class CycleCocycleSystem(Graph):
 
     def sample_theta_char_div(self):
         """ returns a single theta characteristic divisor. Fast """
-        return self.chern_class(self.sample_theta_char_orientation())
+        return self.sample_theta_char_orientation().chern_class()
 
     def sample_theta_char_orientation(self, show=False):
         """ returns a single theta characteristic orientation. Fast """
-        return partition_to_theta_char_orientation(self.underlying_graph(),
-                            eulerian_bipartition(self.underlying_graph()), show)
+        G = partition_to_theta_char_orientation(Graph(self),
+                        eulerian_bipartition(Graph(self), show))
+        return SuperDiGraph(self, G)
 
     def orientation_representatives(self):
         """ Returns a list of representatives for the cycle cocycle system """
@@ -134,11 +194,6 @@ class CycleCocycleSystem(Graph):
                 in self._pic.picard_representatives(self._pic.genus() - 1)]
 
     # Operations on orientations
-
-    def linking_orientation_add(self, U, W):
-        """  """
-        return self.linear_orientation_class(
-            self.linking_div_add(self.chern_class(U), self.chern_class(W)))
 
     def q_red_orientation(self, orientation, q):
         """ performs the orientation equivalent of passing to the q-reduced
@@ -187,28 +242,25 @@ class CycleCocycleSystem(Graph):
         """ takes O(D) of a divisor (currently requires deg D = g-1) """
         assert div.deg() == self._pic.genus() - 1, "Currrently can only take \
         O(D) for deg D = g-1."
-        act_by = div - self.chern_class(self.base_orientation())
-        return self.pic_0_action(self._base_orientation, act_by)
-
-    def linking_div_add(self, A, B):
-        """  """
-        assert self._big_theta_div != None, "Must set big theta first."
-        return A + B - self._big_theta_div
-
-    def div_op(self, div):
-        """ Performs the divisor equivalent of flipping all
-        edges in an orientation """
-        return self._pic.canonical_divisor() - div
+        act_by = div - self.base_orientation().chern_class()
+        return SuperDiGraph(self,
+                            self.pic_0_action(self._base_orientation, act_by))
 
     # Misc
 
     def is_theta_char(self, T):
         """  """
         if isinstance(T, SuperDiGraph):
-            D = T.chern_class()
-        else:
-            D = T
-        return D.is_linearly_equivalent(self.div_op(D))
+            if len(T.biori_set()) != len(T.unori_set()):
+                return False
+            T = T.chern_class()
+        return T.is_linearly_equivalent(div_op(self._pic, T))
+
+
+def div_op(S, div):
+    """ Performs the divisor equivalent of flipping all
+    edges in an orientation """
+    return S.canonical_divisor() - div
 
 
 def div_pos(pic, div, dict_format=True):
@@ -236,6 +288,12 @@ def reachable_it(G, v, reachable):
         reachable_it(G, w, reachable)
 
 
+def induces_connected_subgraph(G, vertices):
+    if len(vertices) == 0:
+        return False
+    return G.subgraph(vertices).is_connected()
+
+
 def eulerian_bipartition(G, show=False):
     """ returns a set of vertices V of a graph G,
     # such that G[V] and G[V^c] are eulerian.
@@ -254,11 +312,17 @@ def eulerian_bipartition(G, show=False):
 
 
 def eulerian_bipartition_recur(G, partition):
-    """  """
+    """ The recursion for the eulerian bipartition algorithm. """
     for v in G.vertices():
         if is_odd(G.degree(v)):
             smallG = G.copy()
-            induct_down(G, smallG, v)
+            smallG.delete_vertex(v)
+            neighbs = G.neighbors(v)
+            for vertex_pair in itertools.combinations(neighbs, 2):
+                if G.has_edge(vertex_pair[0], vertex_pair[1]):
+                    smallG.delete_edge(vertex_pair[0], vertex_pair[1])
+                else:
+                    smallG.add_edge(vertex_pair[0], vertex_pair[1])
             partition = eulerian_bipartition_recur(smallG, partition)
             if is_odd(len(set(partition[0]).intersection(G.neighbors(v)))):
                 partition[1].extend([v])
@@ -266,17 +330,6 @@ def eulerian_bipartition_recur(G, partition):
                 partition[0].extend([v])
             return partition
     return (G.vertices(), [])
-
-
-def induct_down(G, smallG, v):
-    """  """
-    smallG.delete_vertex(v)
-    neighbs = G.neighbors(v)
-    for vertex_pair in itertools.combinations(neighbs, 2):
-        if G.has_edge(vertex_pair[0], vertex_pair[1]):
-            smallG.delete_edge(vertex_pair[0], vertex_pair[1])
-        else:
-            smallG.add_edge(vertex_pair[0], vertex_pair[1])
 
 
 def partition_to_theta_char_orientation(G, V, show=False):
