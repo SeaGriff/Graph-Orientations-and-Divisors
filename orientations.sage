@@ -9,20 +9,22 @@ class SuperDiGraph(DiGraph):
     """ Accepts a DiGraph and implements methods to view it as a super
     directed graph (a graph where edges may additionally be unoriented, or
     unoriented in both directions) """
-    def __init__(self, G, data, bi=set(), unori=set()):
-        assert bi.isdisjoint(unori), "Edge cannot be both bioriented and unoriented."
-
+    def __init__(self, CCS, data, bi=[], unori=[]):
         DiGraph.__init__(self, data)
 
-        self._bi, self._unori = bi, unori
-        if isinstance(G, CycleCocycleSystem):
-            self._CCS = G
+        self._bi = list(bi)
+        self._unori = list(unori)
+        if isinstance(CCS, CycleCocycleSystem):
+            self._CCS = CCS
         else:
-            self._CCS = CycleCocycleSystem(G)
+            self._CCS = CycleCocycleSystem(CCS)
 
     def __repr__(self):
         return ("A superorientation on a graph with {} vertices and with {} edges".format(
         len(self.vertices()), len(self.edges())))
+
+    def show(self):
+        DiGraph(self).show(edge_colors={'red': self._unori, 'blue': self._bi})
 
     def copy(self):
         return SuperDiGraph(self._CCS, self, self._bi, self._unori)
@@ -36,45 +38,128 @@ class SuperDiGraph(DiGraph):
     def CCS(self):
         return self._CCS.copy()
 
+    def unorient_edge(self, e):
+        self._unori.append(e)
+
+    def biorient_edge(self, e):
+        self._bi.append(e)
+
+    def remove_unorientation(self, e):
+        self._unori.remove(e)
+
+    def remove_biorientation(self, e):
+        self._bi.remove(e)
+
+    def unorient_edges(self, X):
+        for e in X:
+            self.unorient_edge(e)
+
+    def biorient_edges(self, X):
+        for e in X:
+            self.biorient_edge(e)
+
     def set_unori(self, X):
-        assert X.isdisjoint(self._bi), "Edge cannot be both bioriented and unoriented."
-        self._unori = X
+        self._unori = list(X)
 
     def set_biori(self, X):
-            assert X.isdisjoint(self._unori), "Edge cannot be both bioriented and unoriented."
-            self._bi = X
+        self._bi = list(X)
+
+    def reverse_edge(self, e):
+        if e in self._unori:
+            self.remove_unorientation(e)
+            self.unorient_edge((e[1], e[0], e[2]))
+        if e in self._bi:
+            self.remove_biorientation(e)
+            self.biorient_edge((e[1], e[0], e[2]))
+        Parent.reverse_edge(e) # :< :< :<
+
+    def reverse_edges(self, X):
+        for e in X:
+            self.reverse_edge(e)
 
     def op(self):
-        return SuperDiGraph(self._CCS, self, self._unori, self._bi)
+        return SuperDiGraph(self._CCS, DiGraph(self).reverse(),
+                            [(e[1],e[0]) for e in self._unori],
+                            [(e[1],e[0]) for e in self._bi])
 
     def is_equivalent(self, U):
-        return self.chern_class().is_linearly_equivalent(self.chern_class(W))
+        return self.chern_class().is_linearly_equivalent(U.chern_class())
 
     def sources(self):
-        return self._make_algo_graph().sources()
+        return DiGraph(self._make_algo_graph()).sources()
 
-    def unfurl(self, X, check=True):
+    def _pivot_toward(self, X):
+        edges_it = self._undirected_boundary(X)
+        pre_G = self.copy()
+        pre_G._del_unori()
+        ind_G = DiGraph(pre_G).subgraph(X)
+        for e in edges_it:
+            if e[1] not in X:
+                self.reverse_edge(e)
+            incoming_at_X_end = {l for l in ind_G.incoming_edges(e[1])}
+            if len(incoming_at_X_end) != 0:
+                self._edge_pivot(e, next(iter(incoming_at_X_end)))
+
+    def dhars(self):
         U = self.copy()
-        if check:
-            assert len(self._bi) == 0, "Currently only supports pure partial orientations."
-            assert len(X) != 0, "Input must be nonempty."
-            assert induces_connected_subgraph(Graph(self), X), "Input must induce a connected subgraph."
-        return self._unfurl_it(X, U)
+        sources = set(self.sources())
+        if self.is_directed_acyclic() or len(sources) == 0:
+            return U
+        return U.dhars_it(sources)
 
-    def _unfurl_it(self, X, U):
-        if set(X).issubset(set(U.sources()):
-            unori_U = Graph(U)
-            X_boundary = unori_U.vertex_boundary(X)
-            for v in X_boundary:
-                
-            return
-        return U
+    def dhars_it(self, X):
+        X_complement = set(self.vertices()) - X
+        self._pivot_toward(X_complement)
+        ind_G = self._make_algo_graph().subgraph(X_complement)
+        v_boundary = self.vertex_boundary(X)
+        to_add = {v for v in v_boundary if len(ind_G.incoming_edges(v)) == 0}
+        if len(to_add) == 0:
+            self.show()
+            return self
+        return self.dhars_it(X.union(to_add))
+
+    # none of the unfurling stuff is done
+
+    def unfurl(self, source):
+        U = self.copy()
+        sources = set(self.sources())
+        if self.is_directed_acyclic() or len(sources) == 0:
+            return U
+
+    def modified_unfurl(self, S):
+        U = self.copy()
+        return self._mod_unfurl_it(set(S), set(S), U)
+
+    def _mod_unfurl_it(self, S, X):
+        todo = self._undirected_boundary(X)
+        if len(todo) != 0:
+            X.add(todo[0][1])
+            return self._mod_unfurl_it(S, X, U)
+        self.reverse_edges(self.outgoing_edges(X))
+        if len(set(self.incoming_edges(S)) - set(self.unori())) != 0:
+            return self
+        return self._mod_unfurl_it(S, S, self)
+
+    def _edge_pivot(self, unori_edge, ori_edge):
+        self.unorient_edge(ori_edge)
+        self.remove_unorientation(unori_edge)
+        if ori_edge[1] != unori_edge[1]:
+            self.reverse_edge(unori_edge)
+
+    def _undirected_boundary(self, X):
+        return [e for e in self._unori if e[0] in X and e[1] not in X]
+
+    def _del_unori(self):
+        self.delete_edges(self._unori)
+
+    def _double_bi(self):
+        self.add_edges({(e[1], e[0]) for e in self._bi})
 
     def _make_algo_graph(self):
-        result = DiGraph(self)
-        result.delete_edges(self._unori)
-        result.add_edges({(e[1], e[0]) for e in self._bi})
-        return result
+        U = self.copy()
+        U._del_unori()
+        U._double_bi()
+        return DiGraph(U)
 
     def chern_class(self):
         """ returns the Chern class of the orientation. """
@@ -112,11 +197,14 @@ class CycleCocycleSystem(Graph):
             self._base_orientation = SuperDiGraph(self,
                                                   base_orientation)
         if base_edge is None:
-            self._base_edge = self.edges()[0]
+            self._base_edge = self.random_edge()
 
     def _repr_(self):
         return ("A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges".format(
         len(self.vertices()), len(self.edges())))
+
+    def show(self):
+        Graph(self).show()
 
     def copy(self):
         return CycleCocycleSystem(self, self._base_orientation, self._base_edge)
@@ -185,7 +273,7 @@ class CycleCocycleSystem(Graph):
     def sample_theta_char_orientation(self, show=False):
         """ returns a single theta characteristic orientation. Fast """
         G = partition_to_theta_char_orientation(Graph(self),
-                        eulerian_bipartition(Graph(self), show))
+                        eulerian_bipartition(Graph(self)), show)
         return SuperDiGraph(self, G)
 
     def orientation_representatives(self):
@@ -273,6 +361,10 @@ def div_pos(pic, div, dict_format=True):
             output_list.extend([v] * int(div[v]))
     return output_list
 
+def double_directed_edges(X):
+    """ Accepts an iterable of ordered pairs and returns a set with all
+    the pairs and all their reversed versions """
+    return set(X).union({(e[1], e[0]) for e in X})
 
 def reachable_vertices(G, q):
     """  """
@@ -294,7 +386,7 @@ def induces_connected_subgraph(G, vertices):
     return G.subgraph(vertices).is_connected()
 
 
-def eulerian_bipartition(G, show=False):
+def eulerian_bipartition(G):
     """ returns a set of vertices V of a graph G,
     # such that G[V] and G[V^c] are eulerian.
     # We have V = V(G) iff the graph has purely even degrees. """
@@ -306,8 +398,6 @@ def eulerian_bipartition(G, show=False):
         result = eulerian_bipartition_recur(preprocess_G, ([], []))
     else:
         result = eulerian_bipartition_recur(G, ([], []))
-    if show:
-        G.show(vertex_colors={'b': result[0], 'r': result[1]})
     return result[0]
 
 
