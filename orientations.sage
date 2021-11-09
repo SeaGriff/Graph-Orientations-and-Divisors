@@ -9,11 +9,16 @@ class SuperDiGraph(DiGraph):
     """ Accepts a DiGraph and implements methods to view it as a super
     directed graph (a graph where edges may additionally be unoriented, or
     unoriented in both directions) """
-    def __init__(self, CCS, data, bi=[], unori=[]):
+    def __init__(self, CCS, data, bi={}, unori={}):
         DiGraph.__init__(self, data)
 
-        self._bi = list(bi)
-        self._unori = list(unori)
+        self._bi = DiGraph(self.vertices(),
+                           multiedges=self.allows_multiple_edges())
+        self._unori = DiGraph(self.vertices(),
+                           multiedges=self.allows_multiple_edges())
+        self._bi.add_edges(bi)
+        self._unori.add_edges(unori)
+
         if isinstance(CCS, CycleCocycleSystem):
             self._CCS = CCS
         else:
@@ -24,25 +29,26 @@ class SuperDiGraph(DiGraph):
         len(self.vertices()), len(self.edges())))
 
     def show(self):
-        DiGraph(self).show(edge_colors={'red': self._unori, 'blue': self._bi})
+        DiGraph(self).show(edge_colors={'blue': self.biori(),
+                                        'red': self.unori()})
 
     def copy(self):
-        return SuperDiGraph(self._CCS, self, self._bi, self._unori)
+        return SuperDiGraph(self._CCS, self, self.biori(), self.unori())
 
     def biori(self):
-        return self._bi.copy()
+        return self._bi.edges()
 
     def unori(self):
-        return self._unori.copy()
+        return self._unori.edges()
 
     def CCS(self):
         return self._CCS.copy()
 
     def unorient_edge(self, e):
-        self._unori.append(e)
+        self._unori.add_edge(e)
 
     def biorient_edge(self, e):
-        self._bi.append(e)
+        self._bi.add_edge(e)
 
     def remove_unorientation(self, e):
         self._unori.remove(e)
@@ -65,13 +71,14 @@ class SuperDiGraph(DiGraph):
         self._bi = list(X)
 
     def reverse_edge(self, e):
+        e = (e[0], e[1], e[2])
         if e in self._unori:
             self.remove_unorientation(e)
             self.unorient_edge((e[1], e[0], e[2]))
         if e in self._bi:
             self.remove_biorientation(e)
             self.biorient_edge((e[1], e[0], e[2]))
-        Parent.reverse_edge(e) # :< :< :<
+        DiGraph.reverse_edge(self, e) # :< :< :<
 
     def reverse_edges(self, X):
         for e in X:
