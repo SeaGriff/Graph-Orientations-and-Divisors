@@ -28,6 +28,7 @@ class CycleCocycleSystem(Graph):
         if base_edge is None:
             self._base_edge = self.random_edge()
 
+
     def _repr_(self):
         return ("A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges".format(
         len(self.vertices()), len(self.edges())))
@@ -167,14 +168,28 @@ class CycleCocycleSystem(Graph):
 
     def linear_orientation_class(self, div):
         assert div.degree() < self.genus(), "Divisor must have degree at most g - 1."
-        dif = self.genus() - 1 - div.degree()
-        if dif == 0:
-            return _top_deg_linear_orientation_class(div)
         U = self.base_orientation()
-        initial = (U, div - U.chern_class())
-        S = div.div_pos()
-        R = (-1*div).div_pos()
-        T = U.adjacent_to_unori()
+        curU, curD = U, div - U.chern_class()
+        zero = self._pic.zero_div()
+        while not curD.linearly_equivalent(self._pic.zero_div()):
+            S = curD.div_pos()
+            R = (-1*curD).div_pos()
+            T = curU.adjacent_to_unori()
+            if S == zero:
+                # stuff
+            else:
+                if len(curU.unori()) != 0:
+                    bar_S = curU.reachable_from_vertices(S.support())
+                    while bar_S.is_disjoint(T):
+                        curU.reverse_edges(curU.edge_boundary(
+                                           curU.vertex_complement(S)))
+                        bar_S = curU.reachable_from_vertices(S.support())
+                    P = next(curU.traverser().all_paths_iterator(S.support, T, True))
+                    curU.reverse_edges(curU._unori.edge_boundary(P[-1]))
+                    curU.unorient_edge(curU._unori.incoming_edges(P[-1])[0])
+                    curU.reverse_edges(zip(P, P[1:]))
+                    curD[P[0]] += -1
+
 
     # Misc
 
@@ -280,7 +295,13 @@ class SuperDiGraph(DiGraph):
         DiGraph.reverse(self)
 
     def sources(self):
-        return DiGraph(self._make_algo_graph()).sources()
+        return DiGraph(self.traverser()).sources()
+
+    def reachable_from_vertex(self, q):
+        return self.traverser().reachable_from_vertex(q)
+
+    def reachable_from_vertices(self, X):
+        return self.traverser().reachable_from_vertices(X)
 
     def adjacent_to_unori(self):
         return {v for v in self._unori.vertices() if self._unori.degree(v) > 0}
@@ -291,7 +312,7 @@ class SuperDiGraph(DiGraph):
     def _pivot_toward(self, X):
         edges_it = self._undirected_boundary(X)
         for e in edges_it:
-            ind_G = DiGraph(self._make_algo_graph()).subgraph(X)
+            ind_G = DiGraph(self.traverser()).subgraph(X)
             incoming_at_X_end = ind_G.incoming_edges(e[1])
             if len(incoming_at_X_end) != 0:
                 self._edge_pivot(e, incoming_at_X_end[0])
@@ -303,7 +324,7 @@ class SuperDiGraph(DiGraph):
     def _dhars_it(self, X, early_termination_data):
         X_comp = self.vertex_complement(X)
         self._pivot_toward(X_comp)
-        ind_G = self._make_algo_graph().subgraph(X_comp)
+        ind_G = self.traverser().subgraph(X_comp)
         v_boundary = self.vertex_boundary(X)
         to_add = {v for v in v_boundary if len(ind_G.incoming_edges(v)) == 0}
         if len(to_add) == 0:
@@ -338,7 +359,7 @@ class SuperDiGraph(DiGraph):
                 return self
             return self._mod_unfurl_it(S, X)
         self.reverse_edges(self.edge_boundary(X))
-        if len(self._make_algo_graph().incoming_edges(S)) != 0:
+        if len(self.traverser().incoming_edges(S)) != 0:
             return self
         return self._mod_unfurl_it(S, S)
 
@@ -359,7 +380,8 @@ class SuperDiGraph(DiGraph):
     def _double_bi(self):
         self.add_edges(self.biori())
 
-    def _make_algo_graph(self):
+    def traverser(self):
+        """ Makes a graph that algorithims can crawl through for paths. """
         U = self.copy()
         U._del_unori()
         U._double_bi()
@@ -368,7 +390,7 @@ class SuperDiGraph(DiGraph):
     def chern_class(self):
         """ returns the Chern class of the orientation. """
         D = self._ccs.pic().all_k_div(-1)
-        for e in self._make_algo_graph().edges():
+        for e in self.traverser().edges():
             D[e[1]] += 1
         return D
 

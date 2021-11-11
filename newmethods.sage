@@ -30,16 +30,16 @@ def div_pos(div, divisor_format=True):
 def reachable_from_vertex(G, q):
     """ Returns the set of vertices reachable by oriented paths from q,
     a vertex in a DiGraph. """
-    return reachable_from_vertices({q})
+    return reachable_from_vertices(G, {q})
 
-def reachable_from_vertices(diG, X):
+def reachable_from_vertices(G, X):
     """ Returns the set of vertices reachable by oriented paths from X,
     a collection of vertices in a DiGraph. """
     V = set(X)
-    to_add = diG.edge_boundary(V)
+    to_add = G.edge_boundary(V)
     while len(to_add) != 0:
-        X.union({e[1] for e in to_add})
-        to_add = diG.edge_boundary(V)
+        V = V.union({e[1] for e in to_add})
+        to_add = G.edge_boundary(V)
     return V
 
 # Generic graph methods
