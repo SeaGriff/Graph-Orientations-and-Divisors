@@ -1,8 +1,7 @@
 """ Builds a cycle-cocycle system on top of a graph and implements associated
 methods, in particular those that relate orientations to divisors. """
 
-import new-methods
-import SuperDiGraph
+load("newmethods.sage")
 
 class CycleCocycleSystem(Graph):
     """ Accepts a graph and returns a cycle-cocycle system, a graph
@@ -65,6 +64,10 @@ class CycleCocycleSystem(Graph):
         """ Sets the base orientation """
         self._base_orientation = G
 
+    def genus(self):
+        """ Returns the genus of the graph. """
+        return len(self.edges()) - len(self.vertices()) + 1
+
     def pic(self):
         """ return the picard group of the graph """
         return self._pic
@@ -87,7 +90,7 @@ class CycleCocycleSystem(Graph):
 
     def theta_char_divisors(self):
         """ Returns a list of all theta characteristic divisors for G. Slow """
-        return [D for D in self._pic.picard_representatives(self._pic.genus() -
+        return [D for D in self._pic.picard_representatives(self.genus() -
                 1) if self.is_theta_char(D)]
 
     def theta_char_orientations(self):
@@ -109,7 +112,7 @@ class CycleCocycleSystem(Graph):
     def orientation_representatives(self):
         """ Returns a list of representatives for the cycle cocycle system """
         return [self.linear_orientation_class(D) for D
-                in self._pic.picard_representatives(self._pic.genus() - 1)]
+                in self._pic.picard_representatives(self.genus() - 1)]
 
     # Operations on orientations
 
@@ -123,13 +126,13 @@ class CycleCocycleSystem(Graph):
         oriented path from q, or, if a target vertex is selected, until
         the target is accessible. """
         vertex_set = set(self.vertices())
-        reachable = reachable_vertices(orientation, origin)
+        reachable = orientation.reachable_from_vertex(origin)
         new_orientation = orientation.copy()
         while (target not in reachable) and not reachable == vertex_set:
             complement = vertex_set - reachable
             new_orientation.reverse_edges(
                 new_orientation.edge_boundary(complement), multiedges=True)
-            reachable = reachable_vertices(new_orientation, origin)
+            reachable = orientation.reachable_from_vertex(origin)
         return new_orientation
 
     def pic_0_action(self, orientation, div):
@@ -156,13 +159,22 @@ class CycleCocycleSystem(Graph):
 
     # Operations on divisors
 
-    def linear_orientation_class(self, div):
+    def _top_deg_linear_orientation_class(self, div):
         """ takes O(D) of a divisor (currently requires deg D = g-1) """
-        assert div.deg() == self._pic.genus() - 1, "Currrently can only take \
-        O(D) for deg D = g-1."
         act_by = div - self.base_orientation().chern_class()
         return SuperDiGraph(self,
                             self.pic_0_action(self._base_orientation, act_by))
+
+    def linear_orientation_class(self, div):
+        assert div.degree() < self.genus(), "Divisor must have degree at most g - 1."
+        dif = self.genus() - 1 - div.degree()
+        if dif == 0:
+            return _top_deg_linear_orientation_class(div)
+        U = self.base_orientation()
+        initial = (U, div - U.chern_class())
+        S = div.div_pos()
+        R = (-1*div).div_pos()
+        T = U.adjacent_to_unori()
 
     # Misc
 
@@ -224,10 +236,10 @@ class SuperDiGraph(DiGraph):
         self._bi.add_edge(e)
 
     def remove_unorientation(self, e):
-        self._unori.remove(e)
+        self._unori.delete_edge(e)
 
     def remove_biorientation(self, e):
-        self._bi.remove(e)
+        self._bi.delete_edge(e)
 
     def unorient_edges(self, X, check=True):
         for e in X:
@@ -236,6 +248,12 @@ class SuperDiGraph(DiGraph):
     def biorient_edges(self, X, check=True):
         for e in X:
             self.biorient_edge(e, check)
+
+    def is_unoriented(self, e):
+        return self._unori.has_edge(e)
+
+    def is_bioriented(self, e):
+        return self._bi.has_edge(e)
 
     def set_unori(self, X):
         self._unori.remove_edges(self.unori.edges())
@@ -261,63 +279,68 @@ class SuperDiGraph(DiGraph):
         self._bi.reverse()
         DiGraph.reverse(self)
 
-    def is_equivalent(self, U):
-        return self.chern_class().is_linearly_equivalent(U.chern_class())
-
     def sources(self):
         return DiGraph(self._make_algo_graph()).sources()
 
+    def adjacent_to_unori(self):
+        return {v for v in self._unori.vertices() if self._unori.degree(v) > 0}
+
+    def adjacent_to_biori(self):
+        return {v for v in self._biori.vertices() if self._biori.degree(v) > 0}
+
     def _pivot_toward(self, X):
         edges_it = self._undirected_boundary(X)
-        pre_G = self.copy()
-        pre_G._del_unori()
-        ind_G = DiGraph(pre_G).subgraph(X)
         for e in edges_it:
-            if e[1] not in X:
-                self.reverse_edge(e)
-            incoming_at_X_end = {l for l in ind_G.incoming_edges(e[1])}
+            ind_G = DiGraph(self._make_algo_graph()).subgraph(X)
+            incoming_at_X_end = ind_G.incoming_edges(e[1])
             if len(incoming_at_X_end) != 0:
-                self._edge_pivot(e, next(iter(incoming_at_X_end)))
+                self._edge_pivot(e, incoming_at_X_end[0])
 
-    def dhars(self):
+    def dhars(self, early_termination_data=False):
         U = self.copy()
-        sources = set(self.sources())
-        if self.is_directed_acyclic() or len(sources) == 0:
-            return U
-        return U.dhars_it(sources)
+        return U._dhars_it(set(self.sources()), early_termination_data)
 
-    def dhars_it(self, X):
-        X_complement = set(self.vertices()) - X
-        self._pivot_toward(X_complement)
-        ind_G = self._make_algo_graph().subgraph(X_complement)
+    def _dhars_it(self, X, early_termination_data):
+        X_comp = self.vertex_complement(X)
+        self._pivot_toward(X_comp)
+        ind_G = self._make_algo_graph().subgraph(X_comp)
         v_boundary = self.vertex_boundary(X)
         to_add = {v for v in v_boundary if len(ind_G.incoming_edges(v)) == 0}
         if len(to_add) == 0:
-            self.show()
+            if early_termination_data:
+                return (self, X)
             return self
-        return self.dhars_it(X.union(to_add))
+        return self._dhars_it(X.union(to_add), early_termination_data)
 
     # none of the unfurling stuff is done
 
-    def unfurl(self, source):
-        U = self.copy()
-        sources = set(self.sources())
-        if self.is_directed_acyclic() or len(sources) == 0:
+    def unfurl(self):
+        return self._unfurl_it()
+
+    def _unfurl_it(self):
+        (U, X) = self.dhars(True)
+        if X == set(U.vertices()):
             return U
+        U.reverse_edges(U.edge_boundary(X))
+        return U._unfurl_it()
 
     def modified_unfurl(self, S):
         U = self.copy()
-        return self._mod_unfurl_it(set(S), set(S), U)
+        return U._mod_unfurl_it(set(S), set(S))
 
     def _mod_unfurl_it(self, S, X):
-        todo = self._undirected_boundary(X)
-        if len(todo) != 0:
-            X.add(todo[0][1])
-            return self._mod_unfurl_it(S, X, U)
-        self.reverse_edges(self.outgoing_edges(X))
-        if len(set(self.incoming_edges(S)) - set(self.unori())) != 0:
+        X_comp = self.vertex_complement(X)
+        self._pivot_toward(X_comp)
+        unori_in_cut = self._unori.edge_boundary(X)
+        if len(unori_in_cut) != 0:
+            X.add(unori_in_cut[0][1])
+            if X == self.vertices():
+                return self
+            return self._mod_unfurl_it(S, X)
+        self.reverse_edges(self.edge_boundary(X))
+        if len(self._make_algo_graph().incoming_edges(S)) != 0:
             return self
-        return self._mod_unfurl_it(S, S, self)
+        return self._mod_unfurl_it(S, S)
 
     def _edge_pivot(self, unori_edge, ori_edge):
         """ Performs an edge pivot on an oriented edge (u,v) and an unoriented
@@ -327,8 +350,8 @@ class SuperDiGraph(DiGraph):
         self.remove_unorientation(unori_edge)
 
     def _undirected_boundary(self, X):
-        self.reverse_edges()
-        return [e for e in self._unori if e[0] in X and e[1] not in X]
+        self.reverse_edges(self._unori.outgoing_edges(X))
+        return self._unori.incoming_edges(X)
 
     def _del_unori(self):
         self.delete_edges(self.unori())
@@ -345,12 +368,12 @@ class SuperDiGraph(DiGraph):
     def chern_class(self):
         """ returns the Chern class of the orientation. """
         D = self._ccs.pic().all_k_div(-1)
-        for e in self.edges():
-            if e not in self._unori:
-                D[e[1]] += 1
-                if e in self._bi:
-                    D[e[0]] += 1
+        for e in self._make_algo_graph().edges():
+            D[e[1]] += 1
         return D
+
+    def is_equivalent(self, U):
+        return self.chern_class().is_linearly_equivalent(U.chern_class())
 
     def is_theta_char(self):
         return self._ccs.is_theta_char(self)

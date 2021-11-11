@@ -27,20 +27,20 @@ def div_pos(div, divisor_format=True):
 
 # DiGraph methods
 
-def reachable_vertices(diG, q):
+def reachable_from_vertex(G, q):
     """ Returns the set of vertices reachable by oriented paths from q,
     a vertex in a DiGraph. """
-    reachable = {q}
-    reachable_it(diG, q, reachable)
-    return reachable
+    return reachable_from_vertices({q})
 
-
-def reachable_it(diG, v, reachable):
-    """ Iterator of reachable_vertices. """
-    reachable.add(v)
-    for w in diG.vertex_boundary(reachable):
-        reachable_it(diG, w, reachable)
-
+def reachable_from_vertices(diG, X):
+    """ Returns the set of vertices reachable by oriented paths from X,
+    a collection of vertices in a DiGraph. """
+    V = set(X)
+    to_add = diG.edge_boundary(V)
+    while len(to_add) != 0:
+        X.union({e[1] for e in to_add})
+        to_add = diG.edge_boundary(V)
+    return V
 
 # Generic graph methods
 
@@ -114,7 +114,8 @@ def vertex_complement(G, V):
 
 SandpileDivisor.div_op = div_op
 SandpileDivisor.div_pos = div_pos
-DiGraph.reachable_vertices = reachable_vertices
+DiGraph.reachable_from_vertex = reachable_from_vertex
+DiGraph.reachable_from_vertices = reachable_from_vertices
 GenericGraph.eulerian_bipartition = eulerian_bipartition
 GenericGraph.vertex_complement = vertex_complement
 GenericGraph._parti_to_or = partition_to_theta_char_orientation
