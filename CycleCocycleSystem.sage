@@ -20,10 +20,10 @@ class CycleCocycleSystem(Graph):
         # Build associated objects
         self._pic = Sandpile(self)
         if base_orientation is None:
-            self._base_orientation = SuperDiGraph(self,
+            self._base_orientation = QuasiDiGraph(self,
                                                   Graph(self).random_orientation())
         else:
-            self._base_orientation = SuperDiGraph(self,
+            self._base_orientation = QuasiDiGraph(self,
                                                   base_orientation)
         if base_edge is None:
             self._base_edge = self.random_edge()
@@ -40,15 +40,17 @@ class CycleCocycleSystem(Graph):
     def copy(self):
         return CycleCocycleSystem(self, self._base_orientation, self._base_edge)
 
+    """ Random data """
+
     def random_orientation(self, unori=0, biori=0):
-        U = SuperDiGraph(self, Graph(self).random_orientation())
+        U = QuasiDiGraph(self, Graph(self).random_orientation())
         for i in range(unori):
             U.unorient_edge(U.random_oriented_edge())
         for i in range(biori):
             U.biorient_edge(U.random_oriented_edge())
         return U
 
-    # Set or retrieve attached objects and internal variables
+    """ Set or retrieve attached objects and internal variables """
 
     def set_base_edge(self, e):
         """ Sets the base edge """
@@ -58,6 +60,16 @@ class CycleCocycleSystem(Graph):
         """ Sets the base orientation """
         self._base_orientation = G
 
+    def base_orientation(self):
+        """ returns the base orientation """
+        return self._base_orientation.copy()
+
+    def base_edge(self):
+        """ returns the base edge """
+        return self._base_edge
+
+    """ Get invariant data """
+
     def genus(self):
         """ Returns the genus of the graph. """
         return len(self.edges()) - len(self.vertices()) + 1
@@ -66,13 +78,10 @@ class CycleCocycleSystem(Graph):
         """ return the picard group of the graph """
         return self._pic
 
-    def base_orientation(self):
-        """ returns the base orientation """
-        return self._base_orientation.copy()
-
-    def base_edge(self):
-        """ returns the base edge """
-        return self._base_edge
+    def orientation_representatives(self):
+        """ Returns a list of representatives for the cycle cocycle system """
+        return [self.linear_orientation_class(D) for D
+                in self._pic.picard_representatives(self.genus() - 1)]
 
     def theta_char_divisors(self):
         """ Returns a list of all theta characteristic divisors for G. Slow """
@@ -93,19 +102,18 @@ class CycleCocycleSystem(Graph):
         """ returns a single theta characteristic orientation. Fast """
         G = partition_to_theta_char_orientation(Graph(self),
                         eulerian_bipartition(Graph(self)), show)
-        return SuperDiGraph(self, G)
+        return QuasiDiGraph(self, G)
 
-    def orientation_representatives(self):
-        """ Returns a list of representatives for the cycle cocycle system """
-        return [self.linear_orientation_class(D) for D
-                in self._pic.picard_representatives(self.genus() - 1)]
+    """ Divisorial algorithms """
 
-    # Operations on divisors
+    def linear_orientation_class(self, div, curU=self.base_orientation()):
+    """ This implements an algorithm from section 4 of Backman's 2017
+    paper "Riemann-Roch Theory for Graph Orientations."
 
-    def linear_orientation_class(self, div, curU=None):
+    Accepts a divisor div and returns an orientation with that div as its
+    Chern class, if possible, and an acyclic orientation with Chern class
+    dominating div otherwise. """
         assert div.deg() < self.genus(), "Divisor must have degree at most g - 1."
-        if curU == None:
-            curU = self.base_orientation()
         curD = div - U.chern_class()
         zero = self._pic.zero_div()
         while not curD.is_linearly_equivalent(zero):
@@ -113,12 +121,10 @@ class CycleCocycleSystem(Graph):
             R = (-1*curD).div_pos()
             T = curU.adjacent_to_unori()
             if S != zero and len(curU.unori()) != 0:
-                print(1)
                 self._linear_orientation_class_case_1(curU, curD, S, T)
             if S != 0 and len(curU.unori()) == 0:
                 self._linear_orientation_class_case_2(curU, curD, S, R)
-            if S == zero:
-                print(3)
+            if S == zero: # Case 3
                 incoming = curU.traverser().incoming_edges(R.support())
                 if len(incoming) != 0:
                     curU.unorient_edge(incoming[0])
@@ -153,20 +159,25 @@ class CycleCocycleSystem(Graph):
             curD[P[0]] += -1
             curD[P[-1]] += 1
 
-    # Misc
+    """ Test associated objects """
 
     def is_theta_char(self, T):
         """  """
-        if isinstance(T, SuperDiGraph):
+        if isinstance(T, QuasiDiGraph):
             if len(T.biori_set()) != len(T.unori_set()):
                 return False
             T = T.chern_class()
         return T.is_linearly_equivalent(div_op(self._pic, T))
 
-class SuperDiGraph(DiGraph):
-    """ Accepts a DiGraph and implements methods to view it as a super
-    directed graph (a graph where edges may additionally be unoriented, or
-    unoriented in both directions) """
+class QuasiDiGraph(DiGraph):
+    """ Accepts a DiGraph and implements methods to view it as a quasidirected
+    graph (a graph where edges may additionally be unoriented, or
+    unoriented in both directions).
+
+    Unoriented and bioriented edges are stored in attached graphs,
+    _unori and _bi. """
+
+
     def __init__(self, ccs, data, bi={}, unori={}):
         DiGraph.__init__(self, data)
 
@@ -182,16 +193,23 @@ class SuperDiGraph(DiGraph):
         else:
             self._ccs = CycleCocycleSystem(ccs)
 
+
+    """ Basic class functionality """
+
     def __repr__(self):
         return ("A superorientation on a graph with {} vertices and with {} edges".format(
         len(self.vertices()), len(self.edges())))
 
-    def show(self):
-        DiGraph(self).show(edge_colors={'blue': self.biori(),
-                                        'red': self.unori()})
+    def show(self, biori_color='blue', unori_color='red'):
+        """ Displays all edges; bioriented edges are by default blue,
+        and unoriented edges are by default red. """
+        DiGraph(self).show(edge_colors={biori_color: self.biori(),
+                                        unori_color: self.unori()})
 
     def copy(self):
-        return SuperDiGraph(self._ccs, self, self.biori(), self.unori())
+        return QuasiDiGraph(self._ccs, self, self.biori(), self.unori())
+
+    """ Random data """
 
     def random_oriented_edge(self):
         U = self.copy()
@@ -204,13 +222,24 @@ class SuperDiGraph(DiGraph):
     def random_biori_edge(self):
         return self._biori.random_edge()
 
+    """ Set or retrieve attached objects and variables. """
+
     def biori(self):
         return self._bi.edges()
 
     def unori(self):
         return self._unori.edges()
 
+
+    def traverser(self):
+        """ Makes a graph that algorithms can crawl through for paths. """
+        U = self.copy()
+        U._del_unori()
+        U._double_bi()
+        return DiGraph(U)
+
     def ccs(self):
+        """ Returns the associated cycle cocycle system. """
         return self._ccs.copy()
 
     def unorient_edge(self, e, check=True):
@@ -237,19 +266,17 @@ class SuperDiGraph(DiGraph):
         for e in X:
             self.biorient_edge(e, check)
 
-    def is_unoriented(self, e):
-        return self._unori.has_edge(e)
-
-    def is_bioriented(self, e):
-        return self._bi.has_edge(e)
-
     def set_unori(self, X):
-        self._unori.remove_edges(self.unori.edges())
-        self._unori.add_edges(X)
+        """ Sets the unoriented edges to be exactly X. """
+        self.remove_unorientation(self.unori())
+        self.unorient_edges(X)
 
     def set_biori(self, X):
-        self._biori.remove_edges(self.unori.edges())
-        self._biori.add_edges(X)
+        """ Sets the bioriented edges to be exactly X. """
+        self.remove_biorientation(self.biori())
+        self.biorient_edges(X)
+
+    """ Overriding DiGraph methods """
 
     def reverse_edge(self, e):
         if self._unori.has_edge(e):
@@ -276,19 +303,54 @@ class SuperDiGraph(DiGraph):
     def reachable_from_vertices(self, X):
         return self.traverser().reachable_from_vertices(X)
 
+    """ Test associated objects """
+
+    def is_unoriented(self, e):
+        return self._unori.has_edge(e)
+
+    def is_bioriented(self, e):
+        return self._bi.has_edge(e)
+
     def adjacent_to_unori(self):
         return {v for v in self._unori.vertices() if self._unori.degree(v) > 0}
 
     def adjacent_to_biori(self):
         return {v for v in self._biori.vertices() if self._biori.degree(v) > 0}
 
-    def _pivot_toward(self, X):
-        edges_it = self._undirected_boundary(X)
+    def pivot_into_cut(self, X):
+        """ Pivots all possible oriented edges into the boundary of X,
+        pointing toward X. """
+        edges_it = self.undirected_boundary(X)
         for e in edges_it:
             ind_G = DiGraph(self.traverser()).subgraph(X)
             incoming_at_X_end = ind_G.incoming_edges(e[1])
             if len(incoming_at_X_end) != 0:
-                self._edge_pivot(e, incoming_at_X_end[0])
+                self.edge_pivot(e, incoming_at_X_end[0])
+
+    """ Nice representations """
+
+    def chern_class(self):
+        """ returns the Chern class of the orientation. """
+        D = self._ccs.pic().all_k_div(-1)
+        for e in self.traverser().edges():
+            D[e[1]] += 1
+        return D
+
+    def q_red(self, q=self.vertices()[0]):
+        """ performs the orientation equivalent of passing to the q-reduced
+        representative of a divisor """
+        self.make_paths(orientation, q)
+
+    def edge_pivot(self, unori_edge, ori_edge):
+        """ Performs an edge pivot on an oriented edge (u,v) and an unoriented
+        edge adjacent to v. """
+        if unori_edge[1] != ori_edge[1]:
+            self.reverse_edge(unori_edge)
+        self.unorient_edge(ori_edge)
+        self.remove_unorientation(unori_edge)
+
+    """ The following implements algorithms from section 4 of Backman's 2017
+    paper "Riemann-Roch Theory for Graph Orientations." """
 
     def dhars(self, early_termination_data=False):
         U = self.copy()
@@ -296,7 +358,7 @@ class SuperDiGraph(DiGraph):
 
     def _dhars_it(self, X, early_termination_data):
         X_comp = self.vertex_complement(X)
-        self._pivot_toward(X_comp)
+        self.pivot_into_cut(X_comp)
         ind_G = self.traverser().subgraph(X_comp)
         v_boundary = self.vertex_boundary(X)
         to_add = {v for v in v_boundary if len(ind_G.incoming_edges(v)) == 0}
@@ -306,17 +368,12 @@ class SuperDiGraph(DiGraph):
             return self
         return self._dhars_it(X.union(to_add), early_termination_data)
 
-    # none of the unfurling stuff is done
-
     def unfurl(self):
-        return self._unfurl_it()
-
-    def _unfurl_it(self):
         (U, X) = self.dhars(True)
         if X == set(U.vertices()):
             return U
         U.reverse_edges(U.edge_boundary(X))
-        return U._unfurl_it()
+        return U.unfurl()
 
     def modified_unfurl(self, S):
         U = self.copy()
@@ -324,7 +381,7 @@ class SuperDiGraph(DiGraph):
 
     def _mod_unfurl_it(self, S, X):
         X_comp = self.vertex_complement(X)
-        self._pivot_toward(X_comp)
+        self.pivot_into_cut(X_comp)
         unori_in_cut = self._unori.edge_boundary(X)
         if len(unori_in_cut) != 0:
             X.add(unori_in_cut[0][1])
@@ -336,46 +393,27 @@ class SuperDiGraph(DiGraph):
             return self
         return self._mod_unfurl_it(S, S)
 
-    def q_red(self, q=None):
-        """ performs the orientation equivalent of passing to the q-reduced
-        representative of a divisor """
-        if q == None:
-            q = self.vertices()[0]
-        self.make_paths(orientation, q)
+    """ Test associated objects """
 
-    def _edge_pivot(self, unori_edge, ori_edge):
-        """ Performs an edge pivot on an oriented edge (u,v) and an unoriented
-        edge {u,v}. Because of the encoding of unoriented edges, on the
-        backend unori_edge has a direction; it is assumed to be toward v. """
-        self.unorient_edge(ori_edge)
-        self.remove_unorientation(unori_edge)
+    def is_equivalent(self, U):
+    """ Checks whether self and another quasiorientation have linearly
+    equivalent Chern classes. """
+        return self.chern_class().is_linearly_equivalent(U.chern_class())
 
-    def _undirected_boundary(self, X):
+    def is_theta_char(self):
+    """ Checks whether self is a theta character. """
+        return self._ccs.is_theta_char(self)
+
+    def undirected_boundary(self, X):
+        """ Returns all undirected edges at the boundary of a collection
+        of vertices X. """
         self.reverse_edges(self._unori.outgoing_edges(X))
         return self._unori.incoming_edges(X)
+
+    """ Lossy internal methods """
 
     def _del_unori(self):
         self.delete_edges(self.unori())
 
     def _double_bi(self):
         self.add_edges(self.biori())
-
-    def traverser(self):
-        """ Makes a graph that algorithims can crawl through for paths. """
-        U = self.copy()
-        U._del_unori()
-        U._double_bi()
-        return DiGraph(U)
-
-    def chern_class(self):
-        """ returns the Chern class of the orientation. """
-        D = self._ccs.pic().all_k_div(-1)
-        for e in self.traverser().edges():
-            D[e[1]] += 1
-        return D
-
-    def is_equivalent(self, U):
-        return self.chern_class().is_linearly_equivalent(U.chern_class())
-
-    def is_theta_char(self):
-        return self._ccs.is_theta_char(self)
