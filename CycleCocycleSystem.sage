@@ -230,7 +230,6 @@ class QuasiDiGraph(DiGraph):
     def unori(self):
         return self._unori.edges()
 
-
     def traverser(self):
         """ Makes a graph that algorithms can crawl through for paths. """
         U = self.copy()
