@@ -4,8 +4,8 @@ methods, in particular those that relate orientations to divisors. """
 load("newmethods.sage")
 
 class CycleCocycleSystem(Graph):
-    """ Accepts a graph and returns a cycle-cocycle system, a graph
-    with methods outputting various data related to the system. """
+    """ Class for a generalized cycle-cocycle system - a graph with
+    orientations and related divisorial data. """
     def __init__(self, data, base_orientation=None, base_edge=None):
         # Build the graph
         Graph.__init__(self, data)
@@ -28,6 +28,7 @@ class CycleCocycleSystem(Graph):
         if base_edge is None:
             self._base_edge = self.random_edge()
 
+    """ Basic class functionality. """
 
     def _repr_(self):
         return ("A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges".format(
@@ -48,22 +49,6 @@ class CycleCocycleSystem(Graph):
         return U
 
     # Set or retrieve attached objects and internal variables
-
-    def set_big_theta(self, T, check=True):
-        """ Set the big theta divisor and orientation.
-        Accepts a divisor or orientation. """
-        if isinstance(T, SuperDiGraph):
-            if check:
-                assert self.is_theta_char(T), "Input must be a \
-                theta characteristic orientation"
-            self._big_theta_div = T.chern_class()
-            self._big_theta_orientation = T
-        else:
-            if check:
-                assert self.is_theta_char(T), "Input must be a theta \
-                characteristic divisor"
-            self._big_theta_div = T
-            self._big_theta_orientation = self.linear_orientation_class(D)
 
     def set_base_edge(self, e):
         """ Sets the base edge """
@@ -88,14 +73,6 @@ class CycleCocycleSystem(Graph):
     def base_edge(self):
         """ returns the base edge """
         return self._base_edge
-
-    def big_theta_orientation(self):
-        """ returns the currently set big theta orientation """
-        return self._big_theta_orientation.copy()
-
-    def big_theta_divisor(self):
-        """ returns the currently set big theta divisor """
-        return self._big_theta_div
 
     def theta_char_divisors(self):
         """ Returns a list of all theta characteristic divisors for G. Slow """
@@ -123,55 +100,13 @@ class CycleCocycleSystem(Graph):
         return [self.linear_orientation_class(D) for D
                 in self._pic.picard_representatives(self.genus() - 1)]
 
-    # Operations on orientations
-
-    def q_red_orientation(self, orientation, q):
-        """ performs the orientation equivalent of passing to the q-reduced
-        representative of a divisor """
-        self.make_paths(orientation, q)
-
-    def make_paths(self, orientation, origin, target=None):
-        """ flips oriented cuts til either every vertex is accessible by an
-        oriented path from q, or, if a target vertex is selected, until
-        the target is accessible. """
-        vertex_set = set(self.vertices())
-        reachable = orientation.reachable_from_vertex(origin)
-        new_orientation = orientation.copy()
-        while (target not in reachable) and not reachable == vertex_set:
-            complement = vertex_set - reachable
-            new_orientation.reverse_edges(
-                new_orientation.edge_boundary(complement), multiedges=True)
-            reachable = orientation.reachable_from_vertex(origin)
-        return new_orientation
-
-    def pic_0_action(self, orientation, div):
-        """ Applies a divisor of degree 0 to an orientation according to the
-        canonical torsor action """
-        assert div.deg() == 0, "Only divisors of degree zero can act \
-            on orientations."
-        D = SandpileDivisor(self._pic, div.copy())
-        new_ori = orientation.copy()
-        D_pos = div_pos(self._pic, D, False)
-        D_neg = div_pos(self._pic, -D, False)
-        for i in range(len(D_pos)):
-            new_ori = self._gen_action(new_ori, D_neg[i], D_pos[i])
-        return new_ori
-
-    def _gen_action(self, orientation, minusVertex, plusVertex):
-        """ Applies a divisor specifically of the form p - q to an orientation
-        according to the canonical torsor action """
-        new_ori = self.make_paths(orientation, plusVertex, minusVertex)
-        P = next(new_ori.shortest_simple_paths(plusVertex,
-                                            minusVertex, report_edges=True))
-        new_ori.reverse_edges(P, multiedges=True)
-        return new_ori
-
     # Operations on divisors
 
-    def linear_orientation_class(self, div):
+    def linear_orientation_class(self, div, curU=None):
         assert div.deg() < self.genus(), "Divisor must have degree at most g - 1."
-        U = self.base_orientation()
-        curU, curD = U, div - U.chern_class()
+        if curU == None:
+            curU = self.base_orientation()
+        curD = div - U.chern_class()
         zero = self._pic.zero_div()
         while not curD.is_linearly_equivalent(zero):
             S = curD.div_pos()
@@ -400,6 +335,13 @@ class SuperDiGraph(DiGraph):
         if len(self.traverser().incoming_edges(S)) != 0:
             return self
         return self._mod_unfurl_it(S, S)
+
+    def q_red(self, q=None):
+        """ performs the orientation equivalent of passing to the q-reduced
+        representative of a divisor """
+        if q == None:
+            q = self.vertices()[0]
+        self.make_paths(orientation, q)
 
     def _edge_pivot(self, unori_edge, ori_edge):
         """ Performs an edge pivot on an oriented edge (u,v) and an unoriented

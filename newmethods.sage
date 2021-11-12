@@ -42,6 +42,21 @@ def reachable_from_vertices(G, X):
         to_add = G.edge_boundary(V)
     return V
 
+def make_paths(G, origin, target=None):
+    """ flips oriented cuts til either every vertex is accessible by an
+    oriented path from q, or, if a target vertex is selected, until
+    the target is accessible. """
+    vertex_set = set(G.vertices())
+    reachable = G.reachable_from_vertex(origin)
+    new_orientation = G.copy()
+    while (target not in reachable) and not reachable == vertex_set:
+        v_complement = vertex_set - reachable
+        new_orientation.reverse_edges(
+            new_orientation.edge_boundary(v_complement),
+            multiedges=G.allows_multiple_edges())
+        reachable = G.reachable_from_vertex(origin)
+    return new_orientation
+
 # Generic graph methods
 
 def induces_connected_subgraph(G, vertices):
@@ -116,6 +131,7 @@ SandpileDivisor.div_op = div_op
 SandpileDivisor.div_pos = div_pos
 DiGraph.reachable_from_vertex = reachable_from_vertex
 DiGraph.reachable_from_vertices = reachable_from_vertices
+DiGraph.make_paths = make_paths
 GenericGraph.eulerian_bipartition = eulerian_bipartition
 GenericGraph.vertex_complement = vertex_complement
 GenericGraph._parti_to_or = partition_to_theta_char_orientation
