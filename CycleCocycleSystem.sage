@@ -21,7 +21,7 @@ class CycleCocycleSystem(Graph):
         self._pic = Sandpile(self)
         if base_orientation is None:
             self._base_orientation = SuperDiGraph(self,
-                                                  self.random_orientation())
+                                                  Graph(self).random_orientation())
         else:
             self._base_orientation = SuperDiGraph(self,
                                                   base_orientation)
@@ -38,6 +38,14 @@ class CycleCocycleSystem(Graph):
 
     def copy(self):
         return CycleCocycleSystem(self, self._base_orientation, self._base_edge)
+
+    def random_orientation(self, unori=0, biori=0):
+        U = SuperDiGraph(self, Graph(self).random_orientation())
+        for i in range(unori):
+            U.unorient_edge(U.random_oriented_edge())
+        for i in range(biori):
+            U.biorient_edge(U.random_oriented_edge())
+        return U
 
     # Set or retrieve attached objects and internal variables
 
@@ -160,36 +168,55 @@ class CycleCocycleSystem(Graph):
 
     # Operations on divisors
 
-    def _top_deg_linear_orientation_class(self, div):
-        """ takes O(D) of a divisor (currently requires deg D = g-1) """
-        act_by = div - self.base_orientation().chern_class()
-        return SuperDiGraph(self,
-                            self.pic_0_action(self._base_orientation, act_by))
-
     def linear_orientation_class(self, div):
-        assert div.degree() < self.genus(), "Divisor must have degree at most g - 1."
+        assert div.deg() < self.genus(), "Divisor must have degree at most g - 1."
         U = self.base_orientation()
         curU, curD = U, div - U.chern_class()
         zero = self._pic.zero_div()
-        while not curD.linearly_equivalent(self._pic.zero_div()):
+        while not curD.is_linearly_equivalent(zero):
             S = curD.div_pos()
             R = (-1*curD).div_pos()
             T = curU.adjacent_to_unori()
+            if S != zero and len(curU.unori()) != 0:
+                print(1)
+                self._linear_orientation_class_case_1(curU, curD, S, T)
+            if S != 0 and len(curU.unori()) == 0:
+                self._linear_orientation_class_case_2(curU, curD, S, R)
             if S == zero:
-                # stuff
-            else:
-                if len(curU.unori()) != 0:
-                    bar_S = curU.reachable_from_vertices(S.support())
-                    while bar_S.is_disjoint(T):
-                        curU.reverse_edges(curU.edge_boundary(
-                                           curU.vertex_complement(S)))
-                        bar_S = curU.reachable_from_vertices(S.support())
-                    P = next(curU.traverser().all_paths_iterator(S.support, T, True))
-                    curU.reverse_edges(curU._unori.edge_boundary(P[-1]))
-                    curU.unorient_edge(curU._unori.incoming_edges(P[-1])[0])
-                    curU.reverse_edges(zip(P, P[1:]))
-                    curD[P[0]] += -1
+                print(3)
+                incoming = curU.traverser().incoming_edges(R.support())
+                if len(incoming) != 0:
+                    curU.unorient_edge(incoming[0])
+                    curD[incoming[0][1]] += 1
+                else:
+                    return curU
+        return curU
 
+    def _linear_orientation_class_case_1(self, curU, curD, S, T):
+        bar_S = curU.reachable_from_vertices(S.support())
+        while bar_S.isdisjoint(T):
+            curU.reverse_edges(curU.edge_boundary(
+                               curU.vertex_complement(S)))
+            bar_S = curU.reachable_from_vertices(S.support())
+        P = next(curU.traverser().all_paths_iterator(S.support(), T,
+                 simple=True, trivial=True))
+        curU.reverse_edges(curU._unori.edge_boundary({P[-1]}))
+        curU.remove_unorientation(curU._unori.incoming_edges({P[-1]})[0])
+        curU.reverse_edges(zip(P, P[1:]))
+        curD[P[0]] += -1
+
+    def _linear_orientation_class_case_2(self, curU, curD, S, R):
+        bar_S = curU.reachable_from_vertices(S.support())
+        if bar_S.isdisjoint(R):
+            curU.reverse_edges(curU.edge_boundary(
+                               curU.vertex_complement(S)))
+            bar_S = curU.reachable_from_vertices(S.support())
+        else:
+            P = next(curU.traverser().all_paths_iterator(S.support(),
+                     R.support(), simple=True))
+            curU.reverse_edges(zip(P, P[1:]))
+            curD[P[0]] += -1
+            curD[P[-1]] += 1
 
     # Misc
 
@@ -230,6 +257,17 @@ class SuperDiGraph(DiGraph):
 
     def copy(self):
         return SuperDiGraph(self._ccs, self, self.biori(), self.unori())
+
+    def random_oriented_edge(self):
+        U = self.copy()
+        U._del_unori()
+        return U.random_edge()
+
+    def random_unori_edge(self):
+        return self._unori.random_edge()
+
+    def random_biori_edge(self):
+        return self._biori.random_edge()
 
     def biori(self):
         return self._bi.edges()
