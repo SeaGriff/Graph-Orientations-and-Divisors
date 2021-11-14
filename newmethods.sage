@@ -20,6 +20,7 @@ def n_torsion(S, n):
 
 """SandpileDivisor methods"""
 
+
 def hodge_star(div):
     """Perform the divisorial equivalent of flipping all
     edges in an orientation (including biorienting <-> unorienting).
@@ -43,6 +44,7 @@ def div_pos(div, divisor_format=True):
 
 
 """ DiGraph methods """
+
 
 def reachable_from_vertex(G, q):
     """Return the set of vertices reachable by oriented paths from q,
@@ -79,7 +81,8 @@ def make_paths(G, origin, target=None):
         reachable = G.reachable_from_vertex(origin)
     return new_orientation
 
-# Generic graph methods
+
+"""GenericGraph methods"""
 
 
 def induces_connected_subgraph(G, vertices):
@@ -132,6 +135,46 @@ def vertex_complement(G, V):
     return set(G.vertices()) - set(V)
 
 
+"""Unoriented graph methods"""
+
+
+def cycle_intersection_graph(G, show=False):
+    """Accept a graph G.
+    Return a graph C which has one vertex for each of the cycles, and an edge
+    between them iff the cycles intersect.
+    Will exhibit undesired behaviour with loop edges or when edge labels are
+    not hashable."""
+    return cycle_graph_from_basis(G.cycle_basis("edge"), show)
+
+
+"""Functions"""
+
+
+def cycle_graph_from_basis(cycle_basis, show=False):
+    """Accept a cycle basis for a graph. The basis must be formatted
+    with edges.
+    Return a graph C which has one vertex for each of the cycles, and an edge
+    between them iff the cycles intersect.
+    Will exhibit undesired behaviour with loop edges or when edge labels are
+    not hashable.
+    """
+    preformat = []
+    for C in cycle_basis:
+        preformat.append(tuple(edges_to_unordered_representation(C)))
+    result = graphs.IntersectionGraph(preformat)
+    if show:
+        result.show(vertex_labels=False, edge_labels=False)
+    return
+
+
+def edges_to_unordered_representation(it):
+    """Accept a collection of edges. Replace each 3-tuple (v1, v2, label)
+    with (frozenset{v1, v2}, label) and return a list of the results.
+    Will exhibit undesired behaviour with loop edges.
+    """
+    return [(frozenset({t[0],t[1]}), t[2]) for t in it]
+
+
 Sandpile.n_torsion = n_torsion
 SandpileDivisor.hodge_star = hodge_star
 SandpileDivisor.div_pos = div_pos
@@ -140,3 +183,4 @@ DiGraph.reachable_from_vertices = reachable_from_vertices
 DiGraph.make_paths = make_paths
 GenericGraph.eulerian_bipartition = eulerian_bipartition
 GenericGraph.vertex_complement = vertex_complement
+Graph.cycle_intersection_graph = cycle_intersection_graph
