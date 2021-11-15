@@ -276,6 +276,12 @@ class QuasiDiGraph(DiGraph):
         """Return the associated cycle cocycle system."""
         return self._ccs.copy()
 
+    def base_orientation(self):
+        """Return the base orientation associated with the underlying cycle
+        cocycle system.
+        """
+        return self._ccs.base_orientation()
+
     def unorient_edge(self, e, check=True):
         """Unorient an edge. Buggy behaviour will result from repeatedly
         unorienting the same edge.

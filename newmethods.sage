@@ -164,7 +164,7 @@ def cycle_graph_from_basis(cycle_basis, show=False):
     result = graphs.IntersectionGraph(preformat)
     if show:
         result.show(vertex_labels=False, edge_labels=False)
-    return
+    return result
 
 
 def edges_to_unordered_representation(it):
