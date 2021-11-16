@@ -1,4 +1,5 @@
-"""Implements some basic methods useful with divisors and orientations,
+"""
+Implements some basic methods useful with divisors and orientations,
 as well as an algorithm for producing a theta characteristic.
 """
 
@@ -22,14 +23,16 @@ def n_torsion(S, n):
 
 
 def hodge_star(div):
-    """Perform the divisorial equivalent of flipping all
+    """
+    Perform the divisorial equivalent of flipping all
     edges in an orientation (including biorienting <-> unorienting).
     """
     return div.sandpile().canonical_divisor() - div
 
 
 def div_pos(div, divisor_format=True):
-    """Return the positive part of a divisor, or if divisor_format is False,
+    """
+    Return the positive part of a divisor, or if divisor_format is False,
     a list of all positive entries (with multiplicity) in the
     divisor.
     """
@@ -47,14 +50,16 @@ def div_pos(div, divisor_format=True):
 
 
 def reachable_from_vertex(G, q):
-    """Return the set of vertices reachable by oriented paths from q,
+    """
+    Return the set of vertices reachable by oriented paths from q,
     a vertex in a DiGraph.
     """
     return reachable_from_vertices(G, {q})
 
 
 def reachable_from_vertices(G, X):
-    """Return the set of vertices reachable by oriented paths from X,
+    """
+    Return the set of vertices reachable by oriented paths from X,
     a collection of vertices in a DiGraph.
     """
     V = set(X)
@@ -66,7 +71,8 @@ def reachable_from_vertices(G, X):
 
 
 def make_paths(G, origin, target=None):
-    """Flip oriented cuts til either every vertex is accessible by an
+    """
+    Flip oriented cuts til either every vertex is accessible by an
     oriented path from q, or, if a target vertex is selected, until
     the target is accessible.
     """
@@ -83,8 +89,10 @@ def make_paths(G, origin, target=None):
 
 
 def cycle_basis(G, output="edge"):
-    """Implement SageMath's cycle_basis method for DiGraphs. Only returns edge
-    formatted cycles."""
+    """
+    Implement SageMath's cycle_basis method for DiGraphs. Only returns edge
+    formatted cycles.
+    """
     assert output == "edge", "Only returns edge formatted cycles."
     result = []
     cycles = Graph(G).cycle_basis("edge")
@@ -101,12 +109,14 @@ def cycle_basis(G, output="edge"):
 
 
 def edge_signs(G, L):
-    """Accept a collection of edges.
+    """
+    Accept a collection of edges.
     Create a dict with keys the edges e in L:
     - assign 1 if e is in G
     - assign -1 if the opposite direction of e is in G
     - assign nothing otherwise
-    Checks with multiplicity.
+    Will exhibit undesired behaviour when multiple edges are not made distinct
+    (for example, by labels).
     """
     return collections_edge_signs(G.edges(), L)
 
@@ -115,7 +125,8 @@ def edge_signs(G, L):
 
 
 def induces_connected_subgraph(G, vertices):
-    """Return whether a set of vertices determines a connected induced
+    """
+    Return whether a set of vertices determines a connected induced
     subgraph. Treats the empty graph as not connected.
     """
     if len(vertices) == 0:
@@ -124,7 +135,8 @@ def induces_connected_subgraph(G, vertices):
 
 
 def eulerian_bipartition(G):
-    """Return a set of vertices V of a graph G,
+    """
+    Return a set of vertices V of a graph G,
     such that G[V] and G[V^c] are eulerian.
     We have V = V(G) iff the graph has purely even degrees.
     """
@@ -165,11 +177,15 @@ def vertex_complement(G, V):
 
 
 def cycle_intersection_graph(G, show=False):
-    """Accept a graph G.
+    """
+    Accept a graph G.
     Return a graph C which has one vertex for each of the cycles, and an edge
     between them iff the cycles intersect.
-    Will exhibit undesired behaviour with loop edges or when edge labels are
-    not hashable."""
+    Will exhibit undesired behaviour with loop edges or when edge data is
+    not hashable.
+    Will exhibit undesired behaviour when multiple edges are not made distinct
+    (for example, by labels).
+    """
     return cycle_graph_from_basis(G.cycle_basis("edge"), show)
 
 
@@ -177,34 +193,36 @@ def cycle_intersection_graph(G, show=False):
 
 
 def collections_edge_signs(L1, L2):
-    """Accept two collections of edges.
+    """
+    Accept two collections of edges.
     Create a dict with keys the edges e in L2:
     - assign 1 if e is in L1
     - assign -1 if the opposite direction of e is in L1
     - assign nothing otherwise
     Checks with multiplicity.
+    Will exhibit undesired behaviour when multiple edges are not made distinct
+    (for example, by labels).
     """
-    L1 = list(L1)
-    L2 = list(L2)
     result = {}
     for e in L2:
         if e in L1:
             result.update({e: 1})
-            L1.remove(e)
         else:
             if (e[1], e[0], e[2]) in L1:
                 result.update({e: -1})
-                L1.remove((e[1], e[0], e[2]))
     return result
 
 
 def cycle_graph_from_basis(cycle_basis, show=False):
-    """Accept a cycle basis for a graph. The basis must be formatted
+    """
+    Accept a cycle basis for a graph. The basis must be formatted
     with edges.
     Return a graph C which has one vertex for each of the cycles, and an edge
     between them iff the cycles intersect.
     Will exhibit undesired behaviour with loop edges or when edge labels are
     not hashable.
+    Will exhibit undesired behaviour when multiple edges are not made distinct
+    (for example, by labels).
     """
     preformat = []
     for C in cycle_basis:
@@ -216,7 +234,8 @@ def cycle_graph_from_basis(cycle_basis, show=False):
 
 
 def edges_to_unordered_representation(it):
-    """Accept a collection of edges. Replace each 3-tuple (v1, v2, label)
+    """
+    Accept a collection of edges. Replace each 3-tuple (v1, v2, label)
     with (frozenset{v1, v2}, label) and return a list of the results.
     Will exhibit undesired behaviour with loop edges.
     """

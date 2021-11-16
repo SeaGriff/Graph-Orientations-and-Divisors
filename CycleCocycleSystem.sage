@@ -11,12 +11,14 @@ from sage.sandpiles.sandpile import SandpileDivisor
 
 
 class CycleCocycleSystem(Graph):
-    """Class for a generalized cycle-cocycle system - a graph with
+    """
+    Class for a generalized cycle-cocycle system - a graph with
     orientations and related divisorial data.
     """
 
     def __init__(self, data, base_orientation=None, base_edge=None):
-        """Construct the graph and associated data.
+        """
+        Construct the graph and associated data.
         The data parameter can be any input sufficient for Sage to build
         a graph with.
         """
@@ -60,7 +62,8 @@ class CycleCocycleSystem(Graph):
     """ Random data """
 
     def random_orientation(self, unori=0, biori=0):
-        """Return a random orientation with unori many unoriented edges
+        """
+        Return a random orientation with unori many unoriented edges
         and biori many bioriented edges.
         """
         U = QuasiDiGraph(self, Graph(self).random_orientation())
@@ -70,7 +73,7 @@ class CycleCocycleSystem(Graph):
             U.biorient_edge(U.random_oriented_edge())
         return U
 
-    """ Set or retrieve attached objects and internal variables """
+    """ Set, create, or retrieve attached objects and internal variables """
 
     def set_base_edge(self, e):
         """Set the base edge."""
@@ -87,6 +90,16 @@ class CycleCocycleSystem(Graph):
     def base_edge(self):
         """Return the base edge."""
         return self._base_edge
+
+    def ori_from_edge_signs(self, signs):
+        """
+        Accept a dict with keys the edges of self and entries +/-1. Return
+        an orientation which differs from the base edge according to the signs
+        of entries.
+        """
+        U = self.base_orientation()
+        U.reverse_edges({e for e in U.edges() if signs[e] == -1})
+        return U
 
     """ Get invariant data """
 
@@ -109,8 +122,7 @@ class CycleCocycleSystem(Graph):
         return [theta_char + D for D in self._pic.n_torsion(2)]
 
     def theta_char_orientations(self):
-        """Return a list of all theta characteristic orientations for G.
-        """
+        """Return a list of all theta characteristic orientations for G."""
         return [self.linear_orientation_class(D) for D in
                 self.theta_char_divisors()]
 
@@ -128,7 +140,8 @@ class CycleCocycleSystem(Graph):
     """ Divisorial algorithms """
 
     def linear_orientation_class(self, div, U=None):
-        """Implements an algorithm from section 4 of Backman's 2017
+        """
+        Implements an algorithm from section 4 of Backman's 2017
         paper "Riemann-Roch Theory for Graph Orientations."
 
         Accepts a divisor div and returns an orientation with that div as its
@@ -188,9 +201,19 @@ class CycleCocycleSystem(Graph):
             T = T.chern_class()
         return T.is_linearly_equivalent(T.hodge_star())
 
+    def compare_to_base_ori(self, U):
+        """
+        Return a dict indexed by edges of the base orientation, comparing the
+        edges of U to edges of the base orientation. The entries are
+        - if edge directions match: 1
+        - if edge directions opposite: -1
+        """
+        return collections_edge_signs(self._ccs.edges(), U.edges())
+
 
 class QuasiDiGraph(DiGraph):
-    """Accepts a DiGraph and implements methods which view it as a
+    """
+    Implements methods which view a DiGraph as a
     quasidirected graph (a graph where edges may additionally be unoriented, or
     unoriented in both directions).
 
@@ -227,7 +250,8 @@ class QuasiDiGraph(DiGraph):
         len(self.vertices()), len(self.edges())))
 
     def show(self, biori_color='blue', unori_color='red', **kwargs):
-        """Display all edges. Bioriented edges are by default blue,
+        """
+        Display the graph. Bioriented edges are by default blue,
         and unoriented edges are by default red.
         """
         DiGraph(self).show(**kwargs, edge_colors={biori_color: self.biori(),
@@ -264,7 +288,8 @@ class QuasiDiGraph(DiGraph):
         return self._unori.edges()
 
     def traverser(self):
-        """Construct a graph that algorithms can crawl through for paths,
+        """
+        Construct a graph that algorithms can crawl through for paths,
         by deleting unoriented edges and doubling bioriented edges.
         """
         U = self.copy()
@@ -277,13 +302,15 @@ class QuasiDiGraph(DiGraph):
         return self._ccs.copy()
 
     def base_orientation(self):
-        """Return the base orientation associated with the underlying cycle
+        """
+        Return the base orientation associated with the underlying cycle
         cocycle system.
         """
         return self._ccs.base_orientation()
 
     def unorient_edge(self, e, check=True):
-        """Unorient an edge. Buggy behaviour will result from repeatedly
+        """
+        Unorient an edge. Buggy behaviour will result from repeatedly
         unorienting the same edge.
         """
         if check:
@@ -293,7 +320,8 @@ class QuasiDiGraph(DiGraph):
         self._unori.add_edge(e)
 
     def biorient_edge(self, e, check=True):
-        """Biorient an edge. Buggy behaviour will result from repeatedly
+        """
+        Biorient an edge. Buggy behaviour will result from repeatedly
         biorienting the same edge.
         """
         if check:
@@ -311,14 +339,16 @@ class QuasiDiGraph(DiGraph):
         self._bi.delete_edge(e)
 
     def unorient_edges(self, X, check=True):
-        """Unorient a collection of edges.
+        """U
+        norient a collection of edges.
         Buggy behaviour will result from repeatedly unorienting the same edge.
         """
         for e in X:
             self.unorient_edge(e, check)
 
     def biorient_edges(self, X, check=True):
-        """Biorient a collection of edges.
+        """
+        Biorient a collection of edges.
         Buggy behaviour will result from repeatedly biorienting the same edge.
         """
         for e in X:
@@ -357,7 +387,8 @@ class QuasiDiGraph(DiGraph):
             self.reverse_edge(e)
 
     def reverse(self):
-        """Reverses all edges in the graph. Does not affect unoriented and
+        """
+        Reverses all edges in the graph. Does not affect unoriented and
         bioriented edges.
         """
         for e in self.edges():
@@ -372,7 +403,8 @@ class QuasiDiGraph(DiGraph):
         return self.traverser().reachable_from_vertex(q)
 
     def reachable_from_vertices(self, X):
-        """Return a list of vertices reachable by oriented paths from
+        """
+        Return a list of vertices reachable by oriented paths from
         vertices in X.
         """
         return self.traverser().reachable_from_vertices(X)
@@ -396,7 +428,8 @@ class QuasiDiGraph(DiGraph):
         return {v for v in self._bi.vertices() if self._bi.degree(v) > 0}
 
     def pivot_into_cut(self, X):
-        """Pivots all possible oriented edges into the boundary of X,
+        """
+        Pivots all possible oriented edges into the boundary of X,
         pointing toward X.
         """
         edges_it = self.undirected_boundary(X)
@@ -416,7 +449,8 @@ class QuasiDiGraph(DiGraph):
         return D
 
     def q_red(self, q=None):
-        """Perform the orientation equivalent of passing to the q-reduced
+        """
+        Perform the orientation equivalent of passing to the q-reduced
         representative of a divisor.
         """
         if q is None:
@@ -424,7 +458,8 @@ class QuasiDiGraph(DiGraph):
         self.make_paths(q)
 
     def edge_pivot(self, unori_edge, ori_edge):
-        """Perform an edge pivot on an oriented edge (u,v) and an unoriented
+        """
+        Perform an edge pivot on an oriented edge (u,v) and an unoriented
         edge adjacent to v.
         """
         if unori_edge[1] != ori_edge[1]:
@@ -432,12 +467,14 @@ class QuasiDiGraph(DiGraph):
         self.unorient_edge(ori_edge)
         self.remove_unorientation(unori_edge)
 
-    """The following implements algorithms from section 4 of Backman's 2017
+    """
+    The following implements algorithms from section 4 of Backman's 2017
     paper "Riemann-Roch Theory for Graph Orientations."
     """
 
     def dhars(self, early_termination_data=False):
-        """Accept an orientation with a directed cycle and a source, and
+        """
+        Accept an orientation with a directed cycle and a source, and
         returns an equivalent orientation which is either acyclic or
         certifies that every equivalent orientation
         contains a directed cycle.
@@ -458,7 +495,8 @@ class QuasiDiGraph(DiGraph):
         return self._dhars_it(X.union(to_add), early_termination_data)
 
     def unfurl(self):
-        """Accept an orientation with a directed cycle and a source, and
+        """
+        Accept an orientation with a directed cycle and a source, and
         return an equivalent orientation which is either acyclic or
         sourceless.
         """
@@ -469,7 +507,8 @@ class QuasiDiGraph(DiGraph):
         return U.unfurl()
 
     def modified_unfurl(self, S):
-        """Accept a collection of sources S inducing a connected
+        """
+        Accept a collection of sources S inducing a connected
         subgraph, and return
         i) an equivalent orientation with an edge oriented
         into S
@@ -497,7 +536,8 @@ class QuasiDiGraph(DiGraph):
     """ Test associated objects """
 
     def is_equivalent(self, U):
-        """Check whether self and another quasiorientation have linearly
+        """
+        Check whether self and another quasiorientation have linearly
         equivalent Chern classes.
         """
         return self.chern_class().is_linearly_equivalent(U.chern_class())
@@ -507,11 +547,30 @@ class QuasiDiGraph(DiGraph):
         return self._ccs.is_theta_char(self)
 
     def undirected_boundary(self, X):
-        """Return all undirected edges at the boundary of a collection
+        """
+        Return all undirected edges at the boundary of a collection
         of vertices X.
         """
         self.reverse_edges(self._unori.outgoing_edges(X))
         return self._unori.incoming_edges(X)
+
+    def compare_to_base_ori(self):
+        """
+        Return a dict indexed by edges of the base orientation, comparing the
+        edges of self to edges of the base orientation. The entries are
+        - if edge directions match: 1
+        - if edge directions opposite: -1
+        """
+        return collections_edge_signs(self._ccs.edges(), self.edges())
+
+    def compare_to_self(self, U):
+        """
+        Return a dict indexed by edges of self, comparing the
+        edges of U to edges of self. The entries are
+        - if edge directions match: 1
+        - if edge directions opposite: -1
+        """
+        return collections_edge_signs(self.edges(), U.edges())
 
     """ Lossy internal methods """
 
@@ -523,7 +582,8 @@ class QuasiDiGraph(DiGraph):
 
 
 def _partition_to_theta_char_orientation(G, V, show=False):
-    """Accept a graph with a nonempty subset of the vertices. The subset and
+    """
+    Accept a graph with a nonempty subset of the vertices. The subset and
     complement are assumed to induce two Eulerian subgraphs.
     Return an orientation which is Eulerian on the two subgraphs and
     has a consistently oriented cut between them.
