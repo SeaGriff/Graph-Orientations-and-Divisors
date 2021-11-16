@@ -82,6 +82,35 @@ def make_paths(G, origin, target=None):
     return new_orientation
 
 
+def cycle_basis(G, output="edge"):
+    """Implement SageMath's cycle_basis method for DiGraphs. Only returns edge
+    formatted cycles."""
+    assert output == "edge", "Only returns edge formatted cycles."
+    result = []
+    cycles = Graph(G).cycle_basis("edge")
+    for C in cycles:
+        edges = G.edge_signs(C)
+        new_cycle = []
+        for e in edges:
+            if edges[e] == 1:
+                new_cycle.append(e)
+            else:
+                new_cycle.append((e[1], e[0], e[2]))
+        result.append(new_cycle)
+    return result
+
+
+def edge_signs(G, L):
+    """Accept a collection of edges.
+    Create a dict with keys the edges e in L:
+    - assign 1 if e is in G
+    - assign -1 if the opposite direction of e is in G
+    - assign nothing otherwise
+    Checks with multiplicity.
+    """
+    return collections_edge_signs(G.edges(), L)
+
+
 """GenericGraph methods"""
 
 
@@ -131,11 +160,8 @@ def _eulerian_bipartition_recur(G, partition):
 
 
 def vertex_complement(G, V):
-    """Return the complement of a subset of vertices."""
+    """Return, as a set, the complement of a collection of vertices."""
     return set(G.vertices()) - set(V)
-
-
-"""Unoriented graph methods"""
 
 
 def cycle_intersection_graph(G, show=False):
@@ -148,6 +174,28 @@ def cycle_intersection_graph(G, show=False):
 
 
 """Functions"""
+
+
+def collections_edge_signs(L1, L2):
+    """Accept two collections of edges.
+    Create a dict with keys the edges e in L2:
+    - assign 1 if e is in L1
+    - assign -1 if the opposite direction of e is in L1
+    - assign nothing otherwise
+    Checks with multiplicity.
+    """
+    L1 = list(L1)
+    L2 = list(L2)
+    result = {}
+    for e in L2:
+        if e in L1:
+            result.update({e: 1})
+            L1.remove(e)
+        else:
+            if (e[1], e[0], e[2]) in L1:
+                result.update({e: -1})
+                L1.remove((e[1], e[0], e[2]))
+    return result
 
 
 def cycle_graph_from_basis(cycle_basis, show=False):
@@ -164,7 +212,7 @@ def cycle_graph_from_basis(cycle_basis, show=False):
     result = graphs.IntersectionGraph(preformat)
     if show:
         result.show(vertex_labels=False, edge_labels=False)
-    return
+    return result
 
 
 def edges_to_unordered_representation(it):
@@ -181,6 +229,8 @@ SandpileDivisor.div_pos = div_pos
 DiGraph.reachable_from_vertex = reachable_from_vertex
 DiGraph.reachable_from_vertices = reachable_from_vertices
 DiGraph.make_paths = make_paths
+DiGraph.cycle_basis = cycle_basis
+DiGraph.edge_signs = edge_signs
 GenericGraph.eulerian_bipartition = eulerian_bipartition
 GenericGraph.vertex_complement = vertex_complement
-Graph.cycle_intersection_graph = cycle_intersection_graph
+GenericGraph.cycle_intersection_graph = cycle_intersection_graph
