@@ -181,13 +181,35 @@ def cycle_intersection_graph(G, show=False):
     Accept a graph G.
     Return a graph C which has one vertex for each of the cycles, and an edge
     between them iff the cycles intersect.
-    Will exhibit undesired behaviour with loop edges or when edge data is
-    not hashable.
+    Will exhibit undesired behaviour with loop edges.
     Will exhibit undesired behaviour when multiple edges are not made distinct
     (for example, by labels).
     """
     return cycle_graph_from_basis(G.cycle_basis("edge"), show)
 
+
+def autolabel(G, stringify=False):
+    """
+    Accept a graph G. Return a copy in which edges are arbitrarily labeled with
+    "0", "1", "2", ...
+    """
+    new = G.copy()
+    new.delete_edges(G.edges())
+    if stringify:
+        new.add_edges([(e[1][0], e[1][1], str(e[0]))
+                      for e in enumerate(G.edges())])
+    else:
+        new.add_edges([(e[1][0], e[1][1], e[0]) for e in enumerate(G.edges())])
+    return new
+
+
+def label_edge_dict(G):
+    """
+    Accept a graph G. Return a dict with keys the labels of edges and entries
+    the edges themselves. Will exhibit undesired behaviour when edges are
+    not uniquely labeled.
+    """
+    return {e[2]: e for e in G.edges()}
 
 """Functions"""
 
@@ -219,8 +241,7 @@ def cycle_graph_from_basis(cycle_basis, show=False):
     with edges.
     Return a graph C which has one vertex for each of the cycles, and an edge
     between them iff the cycles intersect.
-    Will exhibit undesired behaviour with loop edges or when edge labels are
-    not hashable.
+    Will exhibit undesired behaviour with loop edges.
     Will exhibit undesired behaviour when multiple edges are not made distinct
     (for example, by labels).
     """
@@ -253,3 +274,4 @@ DiGraph.edge_signs = edge_signs
 GenericGraph.eulerian_bipartition = eulerian_bipartition
 GenericGraph.vertex_complement = vertex_complement
 GenericGraph.cycle_intersection_graph = cycle_intersection_graph
+GenericGraph.autolabel = autolabel

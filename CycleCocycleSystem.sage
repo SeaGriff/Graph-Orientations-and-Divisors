@@ -28,15 +28,11 @@ class CycleCocycleSystem(Graph):
         # Error checking
         assert self.is_biconnected(), "Graph is not 2-edge connected."
 
-        # Initialize internal variables
-        self._big_theta_div = None
-        self._big_theta_orientation = None
-
         # Build associated objects
         self._pic = Sandpile(self)
         if base_orientation is None:
             self._base_orientation = QuasiDiGraph(self,
-                                              Graph(self).random_orientation())
+                                              self.random_orientation())
         else:
             self._base_orientation = QuasiDiGraph(self,
                                                   base_orientation)
@@ -87,8 +83,14 @@ class CycleCocycleSystem(Graph):
         """Return the base orientation."""
         return self._base_orientation.copy()
 
-    def base_edge(self):
+    def base_edge(self, oriented=True):
         """Return the base edge."""
+        if oriented:
+            if self._base_orientation.has_edge(self._base_edge):
+                return self._base_edge
+            else:
+                return (self._base_edge[1], self._base_edge[0],
+                        self._base_edge[2])
         return self._base_edge
 
     def ori_from_edge_signs(self, signs):
@@ -136,6 +138,15 @@ class CycleCocycleSystem(Graph):
         G = _partition_to_theta_char_orientation(Graph(self), V, show)
         return QuasiDiGraph(self, G)
 
+    def cycle_basis(self, oriented=True):
+        """
+        Modify the cycle basis method for cycle cocycle systems.
+        First, the method now always returns edge formatted cycles.
+        Second, add a parameter "oriented".
+        When this parameter is True, return the cycle basis
+        for the base orientation.
+        """
+        return self._base_orientation.cycle_basis(oriented)
 
     """ Divisorial algorithms """
 
@@ -208,8 +219,14 @@ class CycleCocycleSystem(Graph):
         - if edge directions match: 1
         - if edge directions opposite: -1
         """
-        return collections_edge_signs(self._ccs.edges(), U.edges())
+        return collections_edge_signs(self._base_orientation.edges(), U.edges())
 
+    """Internal bookkeeping"""
+
+    def _align_with_edge(self, e, C):
+        if e in C:
+            return C
+        return [(l[1], l[0], l[2]) for l in C]
 
 class QuasiDiGraph(DiGraph):
     """
@@ -241,7 +258,6 @@ class QuasiDiGraph(DiGraph):
         else:
             self._ccs = CycleCocycleSystem(ccs)
 
-
     """ Basic class functionality """
 
     def __repr__(self):
@@ -260,6 +276,21 @@ class QuasiDiGraph(DiGraph):
     def copy(self):
         """Shallow copy the quasidigraph."""
         return QuasiDiGraph(self._ccs, self, self.biori(), self.unori())
+
+    """Graph invariants"""
+
+    def cycle_basis(self, oriented=True):
+        """
+        Modify the cycle basis method for quasidigraphs.
+        First, the method now always returns edge formatted cycles.
+        Second, add a parameter "oriented".
+        When this parameter is True, return the cycle basis
+        for the base orientation. The cycle containing the
+        base edge is flipped if needed so it aligns with the base edge.
+        """
+        if oriented:
+            return DiGraph(self).cycle_basis("edge")
+        return Graph(self).cycle_basis("edge")
 
     """ Random data """
 
@@ -307,6 +338,10 @@ class QuasiDiGraph(DiGraph):
         cocycle system.
         """
         return self._ccs.base_orientation()
+
+    def base_edge(self, oriented=False):
+        """Return the (oriented) base edge."""
+        return self._ccs.base_edge(oriented)
 
     def unorient_edge(self, e, check=True):
         """
@@ -470,11 +505,13 @@ class QuasiDiGraph(DiGraph):
     """
     The following implements algorithms from section 4 of Backman's 2017
     paper "Riemann-Roch Theory for Graph Orientations."
+
+    None of these check for correctness of input.
     """
 
     def dhars(self, early_termination_data=False):
         """
-        Accept an orientation with a directed cycle and a source, and
+        Accept self with a directed cycle and a source, and
         returns an equivalent orientation which is either acyclic or
         certifies that every equivalent orientation
         contains a directed cycle.
@@ -496,7 +533,7 @@ class QuasiDiGraph(DiGraph):
 
     def unfurl(self):
         """
-        Accept an orientation with a directed cycle and a source, and
+        Accept self with a directed cycle and a source, and
         return an equivalent orientation which is either acyclic or
         sourceless.
         """
