@@ -97,10 +97,10 @@ def cycle_basis(G, output="edge"):
     result = []
     cycles = Graph(G).cycle_basis("edge")
     for C in cycles:
-        edges = G.edge_signs(C)
+        edges = edge_signs(G.edges(), C)
         new_cycle = []
-        for e in edges:
-            if edges[e] == 1:
+        for e in C:
+            if edges[e[2]] == 1:
                 new_cycle.append(e)
             else:
                 new_cycle.append((e[1], e[0], e[2]))
@@ -227,6 +227,34 @@ def edges_to_unordered_representation(it):
     Will exhibit undesired behaviour with loop edges.
     """
     return [(frozenset({t[0],t[1]}), t[2]) for t in it]
+
+
+def edge_signs(L1, L2, labels=True):
+    """
+    Accept two collections of edges.
+    Create a dict with keys the labels of edges e in L2 (or if labels=False,
+    the edges in L2):
+    - assign 1 if e is in L1
+    - assign -1 if the opposite direction of e is in L1
+    - assign nothing otherwise
+    Will exhibit undesired behaviour when multiple edges are not made distinct
+    (for example, by labels).
+    """
+    result = {}
+    for e in L2:
+        if e in L1:
+            if labels:
+                result.update({e[2]: 1})
+            else:
+                result.update({e: 1})
+        else:
+            if (e[1], e[0], e[2]) in L1:
+                if labels:
+                    result.update({e[2]: -1})
+                else:
+                    result.update({e: 1})
+    return result
+
 
 
 Sandpile.n_torsion = n_torsion

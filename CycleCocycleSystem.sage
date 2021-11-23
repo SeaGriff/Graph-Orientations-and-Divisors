@@ -238,8 +238,8 @@ class CycleCocycleSystem(Graph):
         - if edge directions opposite: -1
         """
         if isinstance(U, DiGraph):
-            return _edge_signs(self._base_orientation.edges(), U.edges())
-        return _edge_signs(self._base_orientation.edges(), U)
+            return edge_signs(self._base_orientation.edges(), U.edges())
+        return edge_signs(self._base_orientation.edges(), U)
 
     def orient_cyclic_bijection(self, H, f):
         """
@@ -254,26 +254,33 @@ class CycleCocycleSystem(Graph):
 
         This function is not optimized.
         """
-        self_ref = self.label_edge_dict()
         H_ref = H.label_edge_dict()
         cycs = self._orient_cycle_basis()
         hcycs = []
-        fcycs = []
         for C in cycs:
             hcycs.append(H.compare_to_base_ori([H_ref[f[l]] for l in C.keys()]))
-            fcycs.append({f[l]: C[l] for l in C.keys()})
         hcycs = H._orient_cycle_basis(hcycs)
-        result = {self._base_edge[2]: (f[self._base_edge[2]], 1)}
+        result = {self.base_label(): (f[self.base_label()], 1)}
+        init = next(i for i, C in enumerate(cycs) if self.base_label() in C.keys())
+        self._crawl_cycles_comparing(self.base_label(), init,
+                                     set({self.base_label()}), cycs, hcycs,
+                                     f, result)
+        return result
 
-    def _orient_cycle_basis(self, init_cycs=None):
-        self_ref = self.label_edge_dict()
+        def _orient_cycle_basis(self, init_cycs=None):
+            if init_cycs is None:
+                return [self.compare_to_base_ori(C) for C in self.cycle_basis(oriented=False)]
+            else:
+                return [self.compare_to_base_ori(C) for C  in init_cycs]
+
+    """def _orient_cycle_basis(self, init_cycs=None):
         if init_cycs is None:
             cycs = [self.compare_to_base_ori(C) for C in self.cycle_basis(oriented=False)]
         else:
             cycs = init_cycs
-        initialC = next(iter([C for C in cycs if self._base_edge[2] in C.keys()]))
-        self._crawl_cycles_aligning(self._base_edge[2], 1, initialC,
-                              set({self._base_edge[2]}), cycs, self_ref)
+        initialC = next(C for C in cycs if self.base_label() in C.keys())
+        self._crawl_cycles_aligning(self.base_label(), 1, initialC,
+                              set({self.base_label()}), cycs)
         return cycs
 
     def _crawl_cycles_aligning(self, known_l, known_val, C, checked, cycs):
@@ -289,12 +296,22 @@ class CycleCocycleSystem(Graph):
         checked.update(C.keys())
         for newC in to_it:
             l = set(C.keys()).intersection(newC.keys()).pop()
-            self._crawl_cycles_aligning(l, C[l], newC, checked, cycs)
+            self._crawl_cycles_aligning(l, C[l], newC, checked, cycs)"""
 
-    def _crawl_cycles_comparing(self, known_l, C, fC, checked, fcycs, hcycs, f,
-                                result):
-        pm = result[known_l][1]*fcycs[l]
-
+    def _crawl_cycles_comparing(self, l, index, checked, cycs,
+                                hcycs, f, result):
+        C = cycs[index]
+        fC = hcycs[index]
+        pm = result[l][1] * C[l] * fC[f[l]]
+        result.update({l: (f[l], pm * C[l] * fC[l]) for l in C.keys()})
+        to_it = []
+        for i, newC in enumerate(cycs):
+            if len(set(C.keys()).intersection(newC.keys()) - checked) != 0:
+                to_it.append(i)
+        checked.update(C.keys())
+        for i in to_it:
+            l = set(C.keys()).intersection(cycs[i].keys()).pop()
+            self._crawl_cycles_comparing(l, i, checked, cycs, hcycs, f, result)
 
 class QuasiDiGraph(DiGraph):
     """
@@ -665,7 +682,7 @@ class QuasiDiGraph(DiGraph):
         - if edge directions match: 1
         - if edge directions opposite: -1
         """
-        return _edge_signs(self._ccs.edges(), self.edges())
+        return edge_signs(self._ccs.edges(), self.edges())
 
     def compare_to_self(self, U):
         """
@@ -676,8 +693,8 @@ class QuasiDiGraph(DiGraph):
         - if edge directions opposite: -1
         """
         if isinstance(U, DiGraph):
-            return _edge_signs(self.edges(), U.edges())
-        return _edge_signs(self.edges(), U.edges())
+            return edge_signs(self.edges(), U.edges())
+        return edge_signs(self.edges(), U.edges())
 
     """ Lossy internal methods """
 
@@ -707,30 +724,4 @@ def _partition_to_theta_char_orientation(G, V, show=False):
     result.add_edges(G2.edges())
     if show:
         result.show(vertex_colors={'b': V, 'r': V_comp})
-    return result
-
-def _edge_signs(L1, L2, labels=True):
-    """
-    Accept two collections of edges.
-    Create a dict with keys the labels of edges e in L2 (or if labels=False,
-    the edges in L2):
-    - assign 1 if e is in L1
-    - assign -1 if the opposite direction of e is in L1
-    - assign nothing otherwise
-    Will exhibit undesired behaviour when multiple edges are not made distinct
-    (for example, by labels).
-    """
-    result = {}
-    for e in L2:
-        if e in L1:
-            if labels:
-                result.update({e[2]: 1})
-            else:
-                result.update({e: 1})
-        else:
-            if (e[1], e[0], e[2]) in L1:
-                if labels:
-                    result.update({e[2]: -1})
-                else:
-                    result.update({e: 1})
     return result
