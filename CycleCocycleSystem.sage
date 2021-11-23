@@ -16,17 +16,26 @@ class CycleCocycleSystem(Graph):
     orientations and related divisorial data.
     """
 
-    def __init__(self, data, base_orientation=None, base_edge=None):
+    def __init__(self, data, base_orientation=None, base_edge=None,
+                 autolabel=True, check=True):
         """
         Construct the graph and associated data.
         The data parameter can be any input sufficient for Sage to build
         a graph with.
         """
+
+        # Check for distinct edge labels
+        if autolabel:
+            data = Graph(data)
+            if len(set(data.edge_labels())) < len(data.edges()):
+                data = data.autolabel()
+
         # Build the graph
         Graph.__init__(self, data)
 
         # Error checking
-        assert self.is_biconnected(), "Graph is not 2-edge connected."
+        if check:
+            assert self.is_biconnected(), "Graph is not 2-edge connected."
 
         # Build associated objects
         self._pic = Sandpile(self)
@@ -93,14 +102,19 @@ class CycleCocycleSystem(Graph):
                         self._base_edge[2])
         return self._base_edge
 
+    def base_label(self):
+        """Return the label of the base edge."""
+        return self._base_edge[2]
+
     def ori_from_edge_signs(self, signs):
         """
-        Accept a dict with keys the edges of self and entries +/-1. Return
-        an orientation which differs from the base edge according to the signs
-        of entries.
+        Accept a dict with keys which are edge labels of self and entries +/-1.
+        Return an orientation which differs from the base ori according to the
+        signs of entries.
         """
         U = self.base_orientation()
-        U.reverse_edges({e for e in U.edges() if signs[e] == -1})
+        edge_dict = {e[2]: e for e in self.edges()}
+        U.reverse_edges({edge_dict[l] for l in signs.keys() if signs[l] == -1})
         return U
 
     """ Get invariant data """
@@ -212,21 +226,75 @@ class CycleCocycleSystem(Graph):
             T = T.chern_class()
         return T.is_linearly_equivalent(T.hodge_star())
 
+    """Functionality for maps between CCSs"""
+
     def compare_to_base_ori(self, U):
         """
-        Return a dict indexed by edges of the base orientation, comparing the
+        Accept U, which may be either an orientation or a collection of edges
+        of self.
+        Return a dict by labels of edges of the base orientation, comparing the
         edges of U to edges of the base orientation. The entries are
         - if edge directions match: 1
         - if edge directions opposite: -1
         """
-        return collections_edge_signs(self._base_orientation.edges(), U.edges())
+        if isinstance(U, DiGraph):
+            return _edge_signs(self._base_orientation.edges(), U.edges())
+        return _edge_signs(self._base_orientation.edges(), U)
 
-    """Internal bookkeeping"""
+    def orient_cyclic_bijection(self, H, f):
+        """
+        Accept a cycle cocycle system and a cyclic bijection f. This f must be
+        formatted as a dict with keys the labels of edges in self and entries
+        the labels of edges mapped to.
+        Return f except the entries are tuples (l, s), where s = (+/-)1
+        indicates whether f reverses the edge in question.
+        The reason for the strange input formatting is that this is
+        is the output format SageMath uses when asked for an isomorphism
+        Matroid(self) -> Matroid(H) when self and H have labeled edges.
 
-    def _align_with_edge(self, e, C):
-        if e in C:
-            return C
-        return [(l[1], l[0], l[2]) for l in C]
+        This function is not optimized.
+        """
+        self_ref = self.label_edge_dict()
+        H_ref = H.label_edge_dict()
+        cycs = self._orient_cycle_basis()
+        hcycs = []
+        fcycs = []
+        for C in cycs:
+            hcycs.append(H.compare_to_base_ori([H_ref[f[l]] for l in C.keys()]))
+            fcycs.append({f[l]: C[l] for l in C.keys()})
+        hcycs = H._orient_cycle_basis(hcycs)
+        result = {self._base_edge[2]: (f[self._base_edge[2]], 1)}
+
+    def _orient_cycle_basis(self, init_cycs=None):
+        self_ref = self.label_edge_dict()
+        if init_cycs is None:
+            cycs = [self.compare_to_base_ori(C) for C in self.cycle_basis(oriented=False)]
+        else:
+            cycs = init_cycs
+        initialC = next(iter([C for C in cycs if self._base_edge[2] in C.keys()]))
+        self._crawl_cycles_aligning(self._base_edge[2], 1, initialC,
+                              set({self._base_edge[2]}), cycs, self_ref)
+        return cycs
+
+    def _crawl_cycles_aligning(self, known_l, known_val, C, checked, cycs):
+        if C[known_l] != known_val:
+            i = cycs.index(C)
+            for l in C.keys():
+                C[l] *= -1
+            cycs[i] = C
+        to_it = []
+        for newC in cycs:
+            if len(set(C.keys()).intersection(newC.keys()) - checked) != 0:
+                to_it.append(newC)
+        checked.update(C.keys())
+        for newC in to_it:
+            l = set(C.keys()).intersection(newC.keys()).pop()
+            self._crawl_cycles_aligning(l, C[l], newC, checked, cycs)
+
+    def _crawl_cycles_comparing(self, known_l, C, fC, checked, fcycs, hcycs, f,
+                                result):
+        pm = result[known_l][1]*fcycs[l]
+
 
 class QuasiDiGraph(DiGraph):
     """
@@ -285,8 +353,7 @@ class QuasiDiGraph(DiGraph):
         First, the method now always returns edge formatted cycles.
         Second, add a parameter "oriented".
         When this parameter is True, return the cycle basis
-        for the base orientation. The cycle containing the
-        base edge is flipped if needed so it aligns with the base edge.
+        for self.
         """
         if oriented:
             return DiGraph(self).cycle_basis("edge")
@@ -593,21 +660,24 @@ class QuasiDiGraph(DiGraph):
 
     def compare_to_base_ori(self):
         """
-        Return a dict indexed by edges of the base orientation, comparing the
+        Return a dict indexed by edge labels, comparing the
         edges of self to edges of the base orientation. The entries are
         - if edge directions match: 1
         - if edge directions opposite: -1
         """
-        return collections_edge_signs(self._ccs.edges(), self.edges())
+        return _edge_signs(self._ccs.edges(), self.edges())
 
     def compare_to_self(self, U):
         """
-        Return a dict indexed by edges of self, comparing the
-        edges of U to edges of self. The entries are
+        Return a dict indexed by edge labels in U, comparing the
+        edges of U to edges of self. U may be either an orientation
+        of a collection of edges. The entries are
         - if edge directions match: 1
         - if edge directions opposite: -1
         """
-        return collections_edge_signs(self.edges(), U.edges())
+        if isinstance(U, DiGraph):
+            return _edge_signs(self.edges(), U.edges())
+        return _edge_signs(self.edges(), U.edges())
 
     """ Lossy internal methods """
 
@@ -637,4 +707,30 @@ def _partition_to_theta_char_orientation(G, V, show=False):
     result.add_edges(G2.edges())
     if show:
         result.show(vertex_colors={'b': V, 'r': V_comp})
+    return result
+
+def _edge_signs(L1, L2, labels=True):
+    """
+    Accept two collections of edges.
+    Create a dict with keys the labels of edges e in L2 (or if labels=False,
+    the edges in L2):
+    - assign 1 if e is in L1
+    - assign -1 if the opposite direction of e is in L1
+    - assign nothing otherwise
+    Will exhibit undesired behaviour when multiple edges are not made distinct
+    (for example, by labels).
+    """
+    result = {}
+    for e in L2:
+        if e in L1:
+            if labels:
+                result.update({e[2]: 1})
+            else:
+                result.update({e: 1})
+        else:
+            if (e[1], e[0], e[2]) in L1:
+                if labels:
+                    result.update({e[2]: -1})
+                else:
+                    result.update({e: 1})
     return result

@@ -108,19 +108,6 @@ def cycle_basis(G, output="edge"):
     return result
 
 
-def edge_signs(G, L):
-    """
-    Accept a collection of edges.
-    Create a dict with keys the edges e in L:
-    - assign 1 if e is in G
-    - assign -1 if the opposite direction of e is in G
-    - assign nothing otherwise
-    Will exhibit undesired behaviour when multiple edges are not made distinct
-    (for example, by labels).
-    """
-    return collections_edge_signs(G.edges(), L)
-
-
 """GenericGraph methods"""
 
 
@@ -214,27 +201,6 @@ def label_edge_dict(G):
 """Functions"""
 
 
-def collections_edge_signs(L1, L2):
-    """
-    Accept two collections of edges.
-    Create a dict with keys the edges e in L2:
-    - assign 1 if e is in L1
-    - assign -1 if the opposite direction of e is in L1
-    - assign nothing otherwise
-    Checks with multiplicity.
-    Will exhibit undesired behaviour when multiple edges are not made distinct
-    (for example, by labels).
-    """
-    result = {}
-    for e in L2:
-        if e in L1:
-            result.update({e: 1})
-        else:
-            if (e[1], e[0], e[2]) in L1:
-                result.update({e: -1})
-    return result
-
-
 def cycle_graph_from_basis(cycle_basis, show=False):
     """
     Accept a cycle basis for a graph. The basis must be formatted
@@ -270,8 +236,8 @@ DiGraph.reachable_from_vertex = reachable_from_vertex
 DiGraph.reachable_from_vertices = reachable_from_vertices
 DiGraph.make_paths = make_paths
 DiGraph.cycle_basis = cycle_basis
-DiGraph.edge_signs = edge_signs
 GenericGraph.eulerian_bipartition = eulerian_bipartition
 GenericGraph.vertex_complement = vertex_complement
 GenericGraph.cycle_intersection_graph = cycle_intersection_graph
 GenericGraph.autolabel = autolabel
+GenericGraph.label_edge_dict = label_edge_dict
