@@ -40,11 +40,11 @@ class CycleCocycleSystem(Graph):
         # Build associated objects
         self._pic = Sandpile(self)
         if base_orientation is None:
-            self._base_orientation = QuasiDiGraph(self,
-                                              self.random_orientation())
+            self._base_orientation = QuasiDiGraph(self.random_orientation(),
+                                                  self)
         else:
-            self._base_orientation = QuasiDiGraph(self,
-                                                  base_orientation)
+            self._base_orientation = QuasiDiGraph(base_orientation,
+                                                  self)
         if base_edge is None:
             self._base_edge = self.random_edge()
         else:
@@ -71,7 +71,7 @@ class CycleCocycleSystem(Graph):
         Return a random orientation with unori many unoriented edges
         and biori many bioriented edges.
         """
-        U = QuasiDiGraph(self, Graph(self).random_orientation())
+        U = QuasiDiGraph(Graph(self).random_orientation(), self)
         for i in range(unori):
             U.unorient_edge(U.random_oriented_edge())
         for i in range(biori):
@@ -80,9 +80,12 @@ class CycleCocycleSystem(Graph):
 
     """ Set, create, or retrieve attached objects and internal variables """
 
-    def set_base_edge(self, e):
-        """Set the base edge."""
+    def set_base_edge(self, e, label=False):
+        """Set the base edge. If label is True, set by label."""
+        if label:
+            e = self.label_edge_dict()[e]
         self._base_edge = e
+
 
     def set_base_orientation(self, G):
         """Set the base orientation."""
@@ -113,7 +116,7 @@ class CycleCocycleSystem(Graph):
         signs of entries.
         """
         U = self.base_orientation()
-        edge_dict = {e[2]: e for e in self.edges()}
+        edge_dict = self.label_edge_dict()
         U.reverse_edges({edge_dict[l] for l in signs.keys() if signs[l] == -1})
         return U
 
@@ -150,7 +153,7 @@ class CycleCocycleSystem(Graph):
         """Return a single theta characteristic orientation. Fast."""
         V = Graph(self).eulerian_bipartition()
         G = _partition_to_theta_char_orientation(Graph(self), V, show)
-        return QuasiDiGraph(self, G)
+        return QuasiDiGraph(G, self)
 
     def cycle_basis(self, oriented=True):
         """
@@ -241,9 +244,9 @@ class CycleCocycleSystem(Graph):
             return edge_signs(self._base_orientation.edges(), U.edges())
         return edge_signs(self._base_orientation.edges(), U)
 
-    def orient_cyclic_bijection(self, H, f):
+    def orient_morphism(self, H, f):
         """
-        Accept a cycle cocycle system and a cyclic bijection f. This f must be
+        Accept a cycle cocycle system and a morphism in OrCyc f. This f must be
         formatted as a dict with keys the labels of edges in self and entries
         the labels of edges mapped to.
         Return f except the entries are tuples (l, s), where s = (+/-)1
@@ -254,11 +257,11 @@ class CycleCocycleSystem(Graph):
 
         This function is not optimized.
         """
-        H_ref = H.label_edge_dict()
+        assert f[self.base_label()] == H.base_label(), "Morphism must preserve the base edge."
         cycs = self._orient_cycle_basis()
         hcycs = []
         for C in cycs:
-            hcycs.append(H.compare_to_base_ori([H_ref[f[l]] for l in C.keys()]))
+            hcycs.append({f[l] for l in C.keys()})
         hcycs = H._orient_cycle_basis(hcycs)
         result = {self.base_label(): (f[self.base_label()], 1)}
         init = next(i for i, C in enumerate(cycs) if self.base_label() in C.keys())
@@ -267,36 +270,17 @@ class CycleCocycleSystem(Graph):
                                      f, result)
         return result
 
-        def _orient_cycle_basis(self, init_cycs=None):
-            if init_cycs is None:
-                return [self.compare_to_base_ori(C) for C in self.cycle_basis(oriented=False)]
-            else:
-                return [self.compare_to_base_ori(C) for C  in init_cycs]
-
-    """def _orient_cycle_basis(self, init_cycs=None):
-        if init_cycs is None:
-            cycs = [self.compare_to_base_ori(C) for C in self.cycle_basis(oriented=False)]
+    def _orient_cycle_set(self, C, align_to=None, is_sorted=False):
+        if is_sorted:
+            cycle = self.compare_to_base_ori(C)
         else:
-            cycs = init_cycs
-        initialC = next(C for C in cycs if self.base_label() in C.keys())
-        self._crawl_cycles_aligning(self.base_label(), 1, initialC,
-                              set({self.base_label()}), cycs)
-        return cycs
-
-    def _crawl_cycles_aligning(self, known_l, known_val, C, checked, cycs):
-        if C[known_l] != known_val:
-            i = cycs.index(C)
-            for l in C.keys():
-                C[l] *= -1
-            cycs[i] = C
-        to_it = []
-        for newC in cycs:
-            if len(set(C.keys()).intersection(newC.keys()) - checked) != 0:
-                to_it.append(newC)
-        checked.update(C.keys())
-        for newC in to_it:
-            l = set(C.keys()).intersection(newC.keys()).pop()
-            self._crawl_cycles_aligning(l, C[l], newC, checked, cycs)"""
+            edge_set = set({e for e in self.edges() if e[2] in C})
+            T = Graph(self).subgraph(edges=edge_set)
+            edge_C = T.cycle_basis("edge")[0]
+            cycle = self.compare_to_base_ori(edge_C)
+        if align_to is not None and cycle[align_to] == -1:
+            cycle = {l: cycle[l] * -1 for l in cycle.keys()}
+        return cycle
 
     def _crawl_cycles_comparing(self, l, index, checked, cycs,
                                 hcycs, f, result):
@@ -313,6 +297,27 @@ class CycleCocycleSystem(Graph):
             l = set(C.keys()).intersection(cycs[i].keys()).pop()
             self._crawl_cycles_comparing(l, i, checked, cycs, hcycs, f, result)
 
+    def _orient_cycle_basis(self, cycs=None):
+        if cycs is None:
+            return [self.compare_to_base_ori(C) for C in self.cycle_basis(oriented=False)]
+        return [self._orient_cycle_set(C) for C in cycs]
+
+    def map_ori(self, H, f, U=None, oriented=False):
+        """
+        Accept another CCS H and a morphism in OrCyc f. If oriented is True,
+        this is presumed to have been put through orient_morphism; otherwise
+        prepare by doing this. Map U, or by default the base orientation,
+        to an orientation on H.
+        """
+        if not oriented:
+            f = self.orient_morphism(H, f)
+        if U is None:
+            U = self.base_orientation()
+        self_signs = self.compare_to_base_ori(U)
+        H_signs = {f[l][0]: self_signs[l] * f[l][1] for l in self.edge_labels()}
+        return H.ori_from_edge_signs(H_signs)
+
+
 class QuasiDiGraph(DiGraph):
     """
     Implements methods which view a DiGraph as a
@@ -323,7 +328,7 @@ class QuasiDiGraph(DiGraph):
     _unori and _bi.
     """
 
-    def __init__(self, ccs, data, bi=None, unori=None):
+    def __init__(self, data, ccs=None, bi=None, unori=None):
         """Construct the quasidigraph."""
         DiGraph.__init__(self, data)
 
@@ -338,10 +343,13 @@ class QuasiDiGraph(DiGraph):
                               multiedges=self.allows_multiple_edges(),
                               format='vertices_and_edges')
 
-        if isinstance(ccs, CycleCocycleSystem):
-            self._ccs = ccs
+        if ccs is None:
+            self._ccs = CycleCocycleSystem(self, base_orientation=self)
         else:
-            self._ccs = CycleCocycleSystem(ccs)
+            if isinstance(ccs, CycleCocycleSystem):
+                self._ccs = ccs
+            else:
+                self._ccs = CycleCocycleSystem(ccs)
 
     """ Basic class functionality """
 
@@ -360,7 +368,7 @@ class QuasiDiGraph(DiGraph):
 
     def copy(self):
         """Shallow copy the quasidigraph."""
-        return QuasiDiGraph(self._ccs, self, self.biori(), self.unori())
+        return QuasiDiGraph(self, self._ccs, self.biori(), self.unori())
 
     """Graph invariants"""
 
@@ -424,7 +432,7 @@ class QuasiDiGraph(DiGraph):
         return self._ccs.base_orientation()
 
     def base_edge(self, oriented=False):
-        """Return the (oriented) base edge."""
+        """Return the (by default oriented) base edge."""
         return self._ccs.base_edge(oriented)
 
     def unorient_edge(self, e, check=True):
@@ -492,13 +500,16 @@ class QuasiDiGraph(DiGraph):
 
     """ Overriding DiGraph methods """
 
-    def reverse_edge(self, u, v=None, label=None, multiedges=True):
+    def reverse_edge(self, e, multiedges=True):
         """Reverse an edge."""
-        if self._unori.has_edge(u, v, label):
-            self._unori.reverse_edge(u, v, label, multiedges)
-        if self._bi.has_edge(u, v, label):
-            self._bi.reverse_edge(u, v, label, multiedges)
-        DiGraph.reverse_edge(self, u, v, label, multiedges)
+        if self._unori.has_edge(e):
+            self._unori.reverse_edge(e, multiedges)
+        if self._bi.has_edge(e):
+            self._bi.reverse_edge(e, multiedges)
+        if self.has_edge(e):
+            DiGraph.reverse_edge(self, e, multiedges=multiedges)
+        else:
+            DiGraph.reverse_edge(self, (e[1], e[0], e[2]), multiedges=multiedges)
 
     def reverse_edges(self, X):
         """Reverse a collection of edges."""

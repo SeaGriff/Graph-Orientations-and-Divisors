@@ -1,8 +1,12 @@
 from time import sleep
 load("CycleCocycleSystem.sage")
 
-def CCSgen(n):
-    return (CycleCocycleSystem(G) for G in graphs(n) if G.is_biconnected())
+G = CycleCocycleSystem(graphs.MoserSpindle())
+H = CycleCocycleSystem(graphs.MoserSpindle())
+G.set_base_edge(0, True)
+H.set_base_edge(0, True)
+f = Matroid(G).isomorphism(Matroid(G))
+G.map_ori(H, f)
 
 """G = DiGraph(20)
 G.add_cycle(range(12))
