@@ -244,79 +244,6 @@ class CycleCocycleSystem(Graph):
             return edge_signs(self._base_orientation.edges(), U.edges())
         return edge_signs(self._base_orientation.edges(), U)
 
-    def orient_morphism(self, H, f):
-        """
-        Accept a cycle cocycle system and a morphism in OrCyc f. This f must be
-        formatted as a dict with keys the labels of edges in self and entries
-        the labels of edges mapped to.
-        Return f except the entries are tuples (l, s), where s = (+/-)1
-        indicates whether f reverses the edge in question.
-        The reason for the strange input formatting is that this is
-        is the output format SageMath uses when asked for an isomorphism
-        Matroid(self) -> Matroid(H) when self and H have labeled edges.
-
-        This function is not optimized.
-        """
-        assert f[self.base_label()] == H.base_label(), "Morphism must preserve the base edge."
-        cycs = self._orient_cycle_basis()
-        hcycs = []
-        for C in cycs:
-            hcycs.append({f[l] for l in C.keys()})
-        hcycs = H._orient_cycle_basis(hcycs)
-        result = {self.base_label(): (f[self.base_label()], 1)}
-        init = next(i for i, C in enumerate(cycs) if self.base_label() in C.keys())
-        self._crawl_cycles_comparing(self.base_label(), init,
-                                     set({self.base_label()}), cycs, hcycs,
-                                     f, result)
-        return result
-
-    def _orient_cycle_set(self, C, align_to=None, is_sorted=False):
-        if is_sorted:
-            cycle = self.compare_to_base_ori(C)
-        else:
-            edge_set = set({e for e in self.edges() if e[2] in C})
-            T = Graph(self).subgraph(edges=edge_set)
-            edge_C = T.cycle_basis("edge")[0]
-            cycle = self.compare_to_base_ori(edge_C)
-        if align_to is not None and cycle[align_to] == -1:
-            cycle = {l: cycle[l] * -1 for l in cycle.keys()}
-        return cycle
-
-    def _crawl_cycles_comparing(self, l, index, checked, cycs,
-                                hcycs, f, result):
-        C = cycs[index]
-        fC = hcycs[index]
-        pm = result[l][1] * C[l] * fC[f[l]]
-        result.update({l: (f[l], pm * C[l] * fC[l]) for l in C.keys()})
-        to_it = []
-        for i, newC in enumerate(cycs):
-            if len(set(C.keys()).intersection(newC.keys()) - checked) != 0:
-                to_it.append(i)
-        checked.update(C.keys())
-        for i in to_it:
-            l = set(C.keys()).intersection(cycs[i].keys()).pop()
-            self._crawl_cycles_comparing(l, i, checked, cycs, hcycs, f, result)
-
-    def _orient_cycle_basis(self, cycs=None):
-        if cycs is None:
-            return [self.compare_to_base_ori(C) for C in self.cycle_basis(oriented=False)]
-        return [self._orient_cycle_set(C) for C in cycs]
-
-    def map_ori(self, H, f, U=None, oriented=False):
-        """
-        Accept another CCS H and a morphism in OrCyc f. If oriented is True,
-        this is presumed to have been put through orient_morphism; otherwise
-        prepare by doing this. Map U, or by default the base orientation,
-        to an orientation on H.
-        """
-        if not oriented:
-            f = self.orient_morphism(H, f)
-        if U is None:
-            U = self.base_orientation()
-        self_signs = self.compare_to_base_ori(U)
-        H_signs = {f[l][0]: self_signs[l] * f[l][1] for l in self.edge_labels()}
-        return H.ori_from_edge_signs(H_signs)
-
 
 class QuasiDiGraph(DiGraph):
     """
@@ -437,8 +364,8 @@ class QuasiDiGraph(DiGraph):
 
     def unorient_edge(self, e, check=True):
         """
-        Unorient an edge. Buggy behaviour will result from repeatedly
-        unorienting the same edge.
+        Unorient an edge.
+        Buggy behaviour will result from repeatedly unorienting the same edge.
         """
         if check:
             assert self.has_edge(e), "Unorienting directed edge not in the orientation."
@@ -448,8 +375,8 @@ class QuasiDiGraph(DiGraph):
 
     def biorient_edge(self, e, check=True):
         """
-        Biorient an edge. Buggy behaviour will result from repeatedly
-        biorienting the same edge.
+        Biorient an edge.
+        Buggy behaviour will result from repeatedly biorienting the same edge.
         """
         if check:
             assert self.has_edge(e), "Biorienting directed edge not in the orientation."
@@ -457,17 +384,8 @@ class QuasiDiGraph(DiGraph):
                 self.remove_unorientation(e)
         self._bi.add_edge(e)
 
-    def remove_unorientation(self, e):
-        """Give an unoriented edge an (arbitrary) orientation."""
-        self._unori.delete_edge(e)
-
-    def remove_biorientation(self, e):
-        """Give a bioriented edge an (arbitrary) single orientation."""
-        self._bi.delete_edge(e)
-
     def unorient_edges(self, X, check=True):
-        """U
-        norient a collection of edges.
+        """Unorient a collection of edges.
         Buggy behaviour will result from repeatedly unorienting the same edge.
         """
         for e in X:
@@ -481,14 +399,24 @@ class QuasiDiGraph(DiGraph):
         for e in X:
             self.biorient_edge(e, check)
 
+    def remove_unorientation(self, e):
+        """Give an unoriented edge an (arbitrary) orientation."""
+        self._unori.delete_edge(e)
+
+    def remove_biorientation(self, e):
+        """Give a bioriented edge an (arbitrary) single orientation."""
+        self._bi.delete_edge(e)
+
     def set_unori(self, X):
         """Set the unoriented edges to be exactly X."""
-        self.remove_unorientation(self.unori())
+        for e in self.unori():
+            self.remove_unorientation(e)
         self.unorient_edges(X)
 
     def set_biori(self, X):
         """Set the bioriented edges to be exactly X."""
-        self.remove_biorientation(self.biori())
+        for e in self.biori():
+            self.remove_biorientation(e)
         self.biorient_edges(X)
 
     def hodge_star(self):
@@ -714,6 +642,172 @@ class QuasiDiGraph(DiGraph):
 
     def _double_bi(self):
         self.add_edges(self.biori())
+
+
+class OrCycMorphism(dict):
+    """
+    A class for morphisms in OrCyc. The inputs are two cycle cocycle systems
+    G, H and a morphism f. This f must be formatted as a dict with keys the
+    labels of edges in G and entries the labels of edges mapped to.
+    The reason for the strange input formatting is that this is
+    is the output format SageMath uses when asked for an isomorphism
+    Matroid(G) -> Matroid(H) when G and H have labeled edges
+    (which CCSes are designed to always have).
+
+    The internal copy of the codomain has its base edge set to match that of
+    the domain.
+
+    At construction, determines the correct signs for f.
+    Construction is not optimized!
+
+    Has methods for mapping orientations to orientations
+    (only full orientations are implemented) and divisors to divisors
+    via the Jacobian pushforward.
+    """
+
+    def __init__(self, G, H, f):
+        """Construct the morphism."""
+
+        dict.__init__(self)
+        self.update({l: f[l] for l in f.keys()})
+
+        self._dom = G.copy()
+        self._cod = H.copy()
+        self._cod.set_base_edge(f[G.base_label()], True)
+
+        # Construct the map signs, stored in _signs
+        cycs = self._orient_cycle_basis(G)
+        hcycs = []
+        for C in cycs:
+            hcycs.append({f[l] for l in C.keys()})
+        hcycs = self._orient_cycle_basis(H, hcycs)
+        self._signs = {G.base_label(): 1}
+        init = next(i for i, C in enumerate(cycs) if G.base_label() in C.keys())
+        self._crawl_cycles_comparing(G.base_label(), init,
+                                     set({}), cycs, hcycs)
+
+
+    def _orient_cycle_set(self, CCS, C, align_to=None, is_sorted=False):
+        if is_sorted:
+            cycle = CCS.compare_to_base_ori(C)
+        else:
+            edge_set = set({e for e in CCS.edges() if e[2] in C})
+            T = Graph(CCS).subgraph(edges=edge_set)
+            edge_C = T.cycle_basis("edge")[0]
+            cycle = CCS.compare_to_base_ori(edge_C)
+        if align_to is not None and cycle[align_to] == -1:
+            cycle = {l: cycle[l] * -1 for l in cycle.keys()}
+        return cycle
+
+    def _crawl_cycles_comparing(self, l, index, checked, cycs,
+                                hcycs):
+        C = cycs[index]
+        fC = hcycs[index]
+        pm = self._signs[l] * C[l] * fC[f[l]]
+        self._signs.update({l: pm * C[l] * fC[l] for l in C.keys()})
+        to_it = []
+        for i, newC in enumerate(cycs):
+            if len(set(C.keys()).intersection(newC.keys()) - checked) != 0:
+                to_it.append(i)
+        checked.update(C.keys())
+        for i in to_it:
+            l = set(C.keys()).intersection(cycs[i].keys()).pop()
+            self._crawl_cycles_comparing(l, i, checked, cycs, hcycs)
+
+    def _orient_cycle_basis(self, CCS, cycs=None):
+        if cycs is None:
+            return [CCS.compare_to_base_ori(C) for C in CCS.cycle_basis(oriented=False)]
+        return [self._orient_cycle_set(CCS, C) for C in cycs]
+
+    """Basic class functionality."""
+
+    def __repr__(self):
+        return "A morphism between cycle cocycle systems."
+
+    def show(self):
+        """Print the underlying dict."""
+        print(dict(self))
+
+    def copy(self):
+        """Return a shallow copy of self."""
+        return OrCycMorphism(self._dom, self._cod, dict(self))
+
+    """Retrieve information about associated objects."""
+
+    def domain(self):
+        """Return the domain."""
+        return self._dom.copy()
+
+    def codomain(self):
+        """Return the codomain."""
+        return self._cod.copy()
+
+    def signs(self):
+        """Return the dict encoding the morphism's signs."""
+        return self._signs.copy()
+
+    def rigidity_divisor(self):
+        """Return the rigidity divisor of the morphism."""
+        A = self.map(self._dom.base_orientation().chern_class())
+        B = self.map(self._dom.base_orientation()).chern_class()
+        return A - B
+
+    def is_rigid(self):
+        """Return whether the morphism is rigid."""
+        return self.rigidity_divisor().is_linearly_equivalent(
+                                        self._cod._pic.zero_div())
+
+    """Map associated objects."""
+
+    def map(self, X):
+        """Maps a divisor or orientation on the domain."""
+        if isinstance(X, QuasiDiGraph):
+            return self._map_ori(X)
+        if isinstance(X, SandpileDivisor):
+            return self._map_div(X)
+        raise TypeError("Input must be a quasidigraph or divisor.")
+
+    def _map_div(self, div):
+        D = SandpileDivisor(self._dom._pic, div)
+        dom_base = self._dom.base_edge()[1]
+        cod_base = self._cod.base_edge()[1]
+        D[dom_base] -= div.deg()
+        Dp = D.div_pos(False)
+        Dn = (-1 * D).div_pos(False)
+        dom_jac_div = {l: 0 for l in self._dom.edge_labels()}
+        for n, p in zip(Dn, Dp):
+            P = next(Graph(self._dom).shortest_simple_paths(n, p, report_edges=True,
+                                                     labels=True))
+            if P[0][0] != n:
+                P[0] = (P[0][1], P[0][0], P[0][2])
+            i = 1
+            while i < len(P):
+                if P[i][0] != P[i - 1][1]:
+                    P[i] = (P[i][1], P[i][0], P[i][2])
+                i += 1
+            S = self._dom.compare_to_base_ori(P)
+            for l in S.keys():
+                dom_jac_div[l] += S[l]
+        cod_jac_div = {self[l]: self._signs[l] * dom_jac_div[l]
+                       for l in self.keys()}
+        edges = self._cod.label_edge_dict()
+        result = self._cod._pic.zero_div()
+        result[cod_base] += div.deg()
+        for e in self._cod.base_orientation().edges():
+            result[e[1]] += cod_jac_div[e[2]]
+            result[e[0]] -= cod_jac_div[e[2]]
+        return result
+
+    def _map_ori(self, U):
+        """
+        Map an orientation U on the domain to an orientation on the codomain.
+        """
+        if U is None:
+            U = self._dom.base_orientation()
+        domain_signs = self._dom.compare_to_base_ori(U)
+        cod_signs = {f[l]: domain_signs[l] * f._signs[l]
+                     for l in self._dom.edge_labels()}
+        return self._cod.ori_from_edge_signs(cod_signs)
 
 
 def _partition_to_theta_char_orientation(G, V, show=False):

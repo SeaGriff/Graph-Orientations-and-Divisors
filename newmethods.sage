@@ -1,6 +1,6 @@
 """
-Implements some basic methods useful with divisors and orientations,
-as well as an algorithm for producing a theta characteristic.
+Implements some classes which handle interactions between
+divisors and orientations. See the readme for more.
 """
 
 import itertools
