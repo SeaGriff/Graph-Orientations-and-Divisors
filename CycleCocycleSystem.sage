@@ -136,7 +136,11 @@ class CycleCocycleSystem(Graph):
                 in self._pic.picard_representatives(self.genus() - 1)]
 
     def theta_char_divisors(self):
-        """Return a list of all theta characteristic divisors for G."""
+        """
+        Return a list of all theta characteristic divisors for G.
+        A theta characteristic is a divisor which is self dual under the
+        hodge star operator.
+        """
         theta_char = self.sample_theta_char_div()
         return [theta_char + D for D in self._pic.n_torsion(2)]
 
