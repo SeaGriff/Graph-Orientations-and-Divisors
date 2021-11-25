@@ -809,6 +809,21 @@ class OrCycMorphism(dict):
                      for l in self._dom.edge_labels()}
         return self._cod.ori_from_edge_signs(cod_signs)
 
+    def edge_isomorphism(self, check=True):
+        """
+        Return False if the morphism is not rigid. Otherwise, compute a
+        series fixing automorphism of the codomain psi such that postcomposing
+        with psi gives an edge isomorphism.
+        """
+        psi = {self._dom.base_label(): self._cod.base_label()}
+        ref = self._dom.label_edge_dict()
+        for e in self._dom.adjacent_to_ends(ref[self._dom.base_label()]):
+            self._psi_it(psi, e, ref)
+
+    def _psi_it(self, psi, e, ref):
+        if e not in psi.keys():
+
+
 
 def _partition_to_theta_char_orientation(G, V, show=False):
     """

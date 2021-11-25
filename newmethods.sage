@@ -166,8 +166,22 @@ def series_class(G, e):
     return set(to_check.bridges(labels=True)).union({e})
 
 
-Graph.series_class = series_class
+def boundary_of_edges(G, X):
+    """
+    Return the edges of G which are adjacent to ends of edges in X, but
+    are not in X.
+    """
+    verts = {e[0] for e in X}.union({e[1] for e in X})
+    return {e for e in set(G.edges()) - set(X) if e[0] in verts or e[1] in verts}
 
+
+def adjacent_to_ends(G, e):
+    """Return the edges of G adjacent to the ends of e."""
+    return set(G.edges_incident(e[0])).union(set(G.edges_incident(e[1])))
+
+Graph.series_class = series_class
+Graph.boundary_of_edges = boundary_of_edges
+Graph.adjacent_to_ends = adjacent_to_ends
 
 """DiGraph methods"""
 
