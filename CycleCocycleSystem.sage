@@ -704,7 +704,7 @@ class OrCycMorphism(dict):
         C = cycs[index]
         fC = hcycs[index]
         pm = self._signs[l] * C[l] * fC[f[l]]
-        self._signs.update({l: pm * C[l] * fC[l] for l in C.keys()})
+        self._signs.update({l: pm * C[l] * fC[f[l]] for l in C.keys()})
         to_it = []
         for i, newC in enumerate(cycs):
             if len(set(C.keys()).intersection(newC.keys()) - checked) != 0:
