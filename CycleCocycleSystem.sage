@@ -136,7 +136,11 @@ class CycleCocycleSystem(Graph):
                 in self._pic.picard_representatives(self.genus() - 1)]
 
     def theta_char_divisors(self):
-        """Return a list of all theta characteristic divisors for G."""
+        """
+        Return a list of all theta characteristic divisors for G.
+        A theta characteristic is a divisor which is self dual under the
+        hodge star operator.
+        """
         theta_char = self.sample_theta_char_div()
         return [theta_char + D for D in self._pic.n_torsion(2)]
 
@@ -704,7 +708,7 @@ class OrCycMorphism(dict):
         C = cycs[index]
         fC = hcycs[index]
         pm = self._signs[l] * C[l] * fC[f[l]]
-        self._signs.update({l: pm * C[l] * fC[l] for l in C.keys()})
+        self._signs.update({l: pm * C[l] * fC[f[l]] for l in C.keys()})
         to_it = []
         for i, newC in enumerate(cycs):
             if len(set(C.keys()).intersection(newC.keys()) - checked) != 0:
