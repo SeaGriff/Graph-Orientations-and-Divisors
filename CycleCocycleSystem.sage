@@ -80,7 +80,7 @@ class CycleCocycleSystem(Graph):
 
     """ Set, create, or retrieve attached objects and internal variables """
 
-    def set_base_edge(self, e, label=False):
+    def set_base_edge(self, e, label=True):
         """Set the base edge. If label is True, set by label."""
         if label:
             e = self.label_edge_dict()[e]
@@ -365,6 +365,10 @@ class QuasiDiGraph(DiGraph):
     def base_edge(self, oriented=False):
         """Return the (by default oriented) base edge."""
         return self._ccs.base_edge(oriented)
+
+    def base_label(self):
+        """Return the label of the base edge."""
+        return self._ccs.base_edge()[2]
 
     def unorient_edge(self, e, check=True):
         """
@@ -677,7 +681,7 @@ class OrCycMorphism(dict):
 
         self._dom = G.copy()
         self._cod = H.copy()
-        self._cod.set_base_edge(f[G.base_label()], True)
+        self._cod.set_base_edge(f[G.base_label()])
 
         # Construct the map signs, stored in _signs
         cycs = self._orient_cycle_basis(G)
@@ -707,8 +711,8 @@ class OrCycMorphism(dict):
                                 hcycs):
         C = cycs[index]
         fC = hcycs[index]
-        pm = self._signs[l] * C[l] * fC[f[l]]
-        self._signs.update({l: pm * C[l] * fC[f[l]] for l in C.keys()})
+        pm = self._signs[l] * C[l] * fC[self[l]]
+        self._signs.update({l: pm * C[l] * fC[self[l]] for l in C.keys()})
         to_it = []
         for i, newC in enumerate(cycs):
             if len(set(C.keys()).intersection(newC.keys()) - checked) != 0:
@@ -809,7 +813,7 @@ class OrCycMorphism(dict):
         if U is None:
             U = self._dom.base_orientation()
         domain_signs = self._dom.compare_to_base_ori(U)
-        cod_signs = {f[l]: domain_signs[l] * f._signs[l]
+        cod_signs = {self[l]: domain_signs[l] * self._signs[l]
                      for l in self._dom.edge_labels()}
         return self._cod.ori_from_edge_signs(cod_signs)
 
@@ -819,15 +823,46 @@ class OrCycMorphism(dict):
         series fixing automorphism of the codomain psi such that postcomposing
         with psi gives an edge isomorphism.
         """
-        psi = {self._dom.base_label(): self._cod.base_label()}
-        ref = self._dom.label_edge_dict()
-        for e in self._dom.adjacent_to_ends(ref[self._dom.base_label()]):
-            self._psi_it(psi, e, ref)
+        if check:
+            assert self.is_rigid(), "Morphism must be rigid."
 
-    def _psi_it(self, psi, e, ref):
-        if e not in psi.keys():
+        def op(x):  # Swap 0 and 1
+            return 1 - x
 
+        G = self._dom.base_orientation()
+        H = self._cod.base_orientation()
+        H_ref = H.label_edge_dict()
+        G_ref = G.label_edge_dict()
 
+        psi = {H.base_label(): H.base_label()}
+        v_iso = {G.base_edge()[0]: H.base_edge()[0],
+                    G.base_edge()[1]: H.base_edge()[1]}
+
+        checked = {G.base_edge()[2]}
+        ends = {G.base_edge()[0], G.base_edge()[1]}
+
+        while checked != set(G.edge_labels()):
+            it = {e for e in G.edges() if e[0] in ends or e[1] in ends}
+            for e in it - {G_ref[s] for s in checked}:
+                l = e[2]
+                if e[0] in ends:
+                    o = 0
+                    ends.add(e[1])
+                else:
+                    o = 1
+                    ends.add(e[0])
+                s_class = {b[2] for b in H.series_class(H_ref[self[l]])}
+                for u in s_class - set(psi.values()):
+                    if H_ref[u][o] == v_iso[e[o]]:
+                        psi.update({self[l]: u})
+                        v_iso.update({e[op(o)]: H_ref[u][op(o)]})
+                        break
+                    if H_ref[u][op(o)] == v_iso[e[o]]:
+                        psi.update({self[l]: u})
+                        v_iso.update({e[op(o)]: H_ref[u][o]})
+                        break
+                checked.add(l)
+        return psi
 
 def _partition_to_theta_char_orientation(G, V, show=False):
     """

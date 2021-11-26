@@ -16,6 +16,8 @@ broken out into the other file, newmethods.
 
 CycleCocycleSystem consists of three classes:
 
+
+
 - CycleCocycleSystem: Parent is Graph.
 This a base which organizes and examines objects in OrCyc having the same
 underlying graph. The edges in a CCS must always be uniquely labeled,
@@ -23,7 +25,9 @@ and the underlying graph must be 2-edge connected. A CCS is not designed
 to have edges added or removed after construction.
 
 This implements Backman's algorithm for attempting to lift a divisor
-to a partial orientation.
+to a partial orientation. Also implements and adapts an algorithm implicit
+in a proof of Gallai, in order to efficiently produce divisors which are
+up to linear equivalence half the canonical_divisor.
 
 Construction:
 CycleCocycleSystem(data, base_orientation=None, base_edge=None,
@@ -41,6 +45,8 @@ order.
 
 check: If True (default), raises an error if the underlying graph is not
 2-edge connected.
+
+
 
 - QuasiDiGraph: Parent is DiGraph.
 This is a particular instance of a partial orientation sitting over a CCS.
@@ -72,6 +78,8 @@ which produces a correctly labeled QDG.
 bi: An iterable of edges to be initially bioriented.
 
 unori: Likewise for unoriented edges.
+
+
 
 - OrCycMorphism: Parent is dict.
 This is a class for morphisms in the category OrCyc, and in particular

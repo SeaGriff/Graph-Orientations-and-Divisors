@@ -146,24 +146,25 @@ def label_edge_dict(G):
     return {e[2]: e for e in G.edges()}
 
 
-GenericGraph.eulerian_bipartition = eulerian_bipartition
-GenericGraph.vertex_complement = vertex_complement
-GenericGraph.cycle_intersection_graph = cycle_intersection_graph
-GenericGraph.autolabel = autolabel
-GenericGraph.label_edge_dict = label_edge_dict
-
-
-"""Graph methods"""
-
-
 def series_class(G, e):
     """
     Return an iterator containing all the edges in the series class of e.
     Only well defined if G is 2-edge connected.
     """
-    to_check = G.copy()
+    to_check = Graph(G)
     to_check.delete_edge(e)
     return set(to_check.bridges(labels=True)).union({e})
+
+
+GenericGraph.eulerian_bipartition = eulerian_bipartition
+GenericGraph.vertex_complement = vertex_complement
+GenericGraph.cycle_intersection_graph = cycle_intersection_graph
+GenericGraph.autolabel = autolabel
+GenericGraph.label_edge_dict = label_edge_dict
+GenericGraph.series_class = series_class
+
+
+"""Graph methods"""
 
 
 def boundary_of_edges(G, X):
@@ -179,7 +180,7 @@ def adjacent_to_ends(G, e):
     """Return the edges of G adjacent to the ends of e."""
     return set(G.edges_incident(e[0])).union(set(G.edges_incident(e[1])))
 
-Graph.series_class = series_class
+
 Graph.boundary_of_edges = boundary_of_edges
 Graph.adjacent_to_ends = adjacent_to_ends
 
