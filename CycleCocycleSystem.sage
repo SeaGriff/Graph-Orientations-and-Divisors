@@ -42,9 +42,13 @@ class CycleCocycleSystem(Graph):
         if base_orientation is None:
             self._base_orientation = QuasiDiGraph(self.random_orientation(),
                                                   self)
+        elif len(set(base_orientation)) < len(base_orientation.edges()):
+            self._base_orientation = QuasiDiGraph(base_orientation.autolabel(),
+                                                  self)
         else:
             self._base_orientation = QuasiDiGraph(base_orientation,
                                                   self)
+                                                  
         if base_edge is None:
             self._base_edge = self.random_edge()
         else:
@@ -56,9 +60,13 @@ class CycleCocycleSystem(Graph):
         return ("A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges".format(
         len(self.vertices()), len(self.edges())))
 
-    def show(self, **kwargs):
-        """Show the (unoriented) underlying graph."""
-        Graph(self, **kwargs).show()
+    def show_unoriented(self, edge_labels=True, **kwargs):
+        """Show the (unoriented) underlying graph, with edge labels by default."""
+        Graph(self).show(edge_labels=edge_labels, **kwargs)
+
+    def show(self, edge_labels=True, **kwargs):
+        """Show the base orientation, with edge labels by default."""
+        self._base_orientation.show(edge_labels=edge_labels, **kwargs)
 
     def copy(self):
         """Shallow copy the CCS."""
@@ -289,13 +297,15 @@ class QuasiDiGraph(DiGraph):
         return ("A quasiorientation on a graph with {} vertices and with {} edges".format(
         len(self.vertices()), len(self.edges())))
 
-    def show(self, biori_color='blue', unori_color='red', **kwargs):
+    def show(self, biori_color='blue', unori_color='red', edge_labels=True,
+             **kwargs):
         """
         Display the graph. Bioriented edges are by default blue,
-        and unoriented edges are by default red.
+        and unoriented edges are by default red. Edge labels on by default.
         """
-        DiGraph(self).show(**kwargs, edge_colors={biori_color: self.biori(),
-                                                  unori_color: self.unori()})
+        DiGraph(self).show(**kwargs, edge_labels=edge_labels,
+                           edge_colors={biori_color: self.biori(),
+                           unori_color: self.unori()})
 
     def copy(self):
         """Shallow copy the quasidigraph."""

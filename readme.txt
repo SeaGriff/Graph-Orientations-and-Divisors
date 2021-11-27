@@ -1,21 +1,35 @@
-This project implements code concerning processes within or adjacent to
+This project implements algorithms in or proceeding
 my forthcoming paper on the graph Torelli theorem.
 
-The paper uses the theory of partial orientations put forward in Spencer
-Backman's "Riemann-Roch Theory for Graph Orientations." Although Backman's
-paper is algorithmically inclined, I was unable to find any implementations
-of the material I used. I thought it might be interesting to others to
-implement this material (and the bulk of mine) in SageMath.
+The underlying theory largely deals with generalized cycle
+cocycle systems (henceforth just cycle cocycle systems or CCSs).
+These were introduced in Spencer Backman's "Riemann-Roch Theory for Graph
+Orientations."
 
-The implementation is a foundation: it is not optimized and the data structure
-supports bioriented edges, but the algorithms have not been adapted for them.
+The algorithms are of two types:
+
+1) Computations concerning morphisms between CCSs. These are new.
+
+2) Those algorithms appearing in Backman's paper upon which the results I used
+depend. I was unable to find other existing implementations of this material.
+
+######
+
+The code here is a foundation: it is not optimized, and various features ought
+to be fleshed out. For example, the data structure supports bioriented edges, 
+but the algorithms have not been adapted for them.
+
+The intent is to produce something others can experiment with or
+build upon.
+
+######
 
 The project consists of two files. The complex code is in CycleCocycleSystem.
 A few simple functions and methods which might be independently useful are
 broken out into the other file, newmethods.
 
-CycleCocycleSystem consists of three classes:
 
+CycleCocycleSystem consists of three classes:
 
 
 - CycleCocycleSystem: Parent is Graph.
@@ -29,23 +43,30 @@ to a partial orientation. Also implements and adapts an algorithm implicit
 in a proof of Gallai, in order to efficiently produce divisors which are
 up to linear equivalence half the canonical_divisor.
 
+
 Construction:
 CycleCocycleSystem(data, base_orientation=None, base_edge=None,
 autolabel=True, check=True)
 
+
 data: Any data sufficient for SageMath's Graph constructor (in particular,
 a Graph or DiGraph).
 
+
 base_orientation and base_edge: Used throughout. When no input is chosen these
 are both assigned randomly.
+
 
 autolabel: If True (default), checks whether the edges of the underlying graph
 are uniquely labeled. If not, labels them with integers 0 to n, in arbitrary
 order.
 
+
 check: If True (default), raises an error if the underlying graph is not
 2-edge connected.
 
+
+###
 
 
 - QuasiDiGraph: Parent is DiGraph.
@@ -59,11 +80,14 @@ or bioriented.
 This implements Backman's oriented Dhar's algorithm, unfurling algorithm,
 and modified unfurling algorithm.
 
+
 Construction:
 QuasiDiGraph(data, ccs=None, bi=None, unori=None)
 
+
 data: Any data sufficient for SageMath's DiGraph constructor (in particular,
 a DiGraph).
+
 
 ccs: The underlying CCS. If none, a CCS is created from the underlying
 undirected graph, and given a base orientation with the same edge directions
@@ -75,10 +99,14 @@ For this reason, for such a Q the recommended pattern is:
 Q = QuasiDiGraph(Q).ccs().base_orientation()
 which produces a correctly labeled QDG.
 
+
 bi: An iterable of edges to be initially bioriented.
+
 
 unori: Likewise for unoriented edges.
 
+
+###
 
 
 - OrCycMorphism: Parent is dict.
@@ -86,13 +114,22 @@ This is a class for morphisms in the category OrCyc, and in particular
 their functorial aspects. Each instance is a dict relating edge labels in a
 domain CCS to edge labels in a codomain CCS, encoding a cyclic bijection
 (that is, an isomorphism of their matroids).
+
 Produces the signs associated with edges, which are used in functorially
-pushing forward orientations and divisors. Does the functorial pushforward.
-Calculates rigidity.
+pushing forward orientations and divisors. Computes both forms of pushing
+forward.
+
+Checks rigidity, and when rigidity holds, computes the series fixing
+automorphism of the main theorem.
+
 
 Construction:
 OrCycMorphism(G, H, f)
+
+
 G and H: Two CCSes.
+
+
 f: A dict encoding (by edge labels) a cyclic bijection. If G and H in fact have
 such an f, it can produced by the command:
 f = Matroid(G).isomorphism(Matroid(H))
