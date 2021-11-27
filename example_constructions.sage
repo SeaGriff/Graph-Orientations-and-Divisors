@@ -59,7 +59,6 @@ def ex3():
     U.add_cycle([18,19,20])
     U.add_edges([(2*n, n + 12) for n in range(0, 6)])
     U.add_edges([(13,20), (17,19), (15,18)])
-    G = CycleCocycleSystem(U, base_orientation=U.autolabel())
-    U = G.base_orientation()
+    U = QuasiDiGraph(U)
     U.set_unori(DiGraph(U).subgraph(range(12)).edges())
     return U

@@ -42,13 +42,13 @@ class CycleCocycleSystem(Graph):
         if base_orientation is None:
             self._base_orientation = QuasiDiGraph(self.random_orientation(),
                                                   self)
-        elif len(set(base_orientation)) < len(base_orientation.edges()):
+        elif len(set(base_orientation.edge_labels())) < len(base_orientation.edges()):
             self._base_orientation = QuasiDiGraph(base_orientation.autolabel(),
                                                   self)
         else:
             self._base_orientation = QuasiDiGraph(base_orientation,
                                                   self)
-                                                  
+
         if base_edge is None:
             self._base_edge = self.random_edge()
         else:
@@ -140,7 +140,7 @@ class CycleCocycleSystem(Graph):
 
     def orientation_representatives(self):
         """Return a list of representatives for the cycle cocycle system."""
-        return [self.linear_orientation_class(D) for D
+        return [self.orientation_class(D) for D
                 in self._pic.picard_representatives(self.genus() - 1)]
 
     def theta_char_divisors(self):
@@ -154,7 +154,7 @@ class CycleCocycleSystem(Graph):
 
     def theta_char_orientations(self):
         """Return a list of all theta characteristic orientations for G."""
-        return [self.linear_orientation_class(D) for D in
+        return [self.orientation_class(D) for D in
                 self.theta_char_divisors()]
 
     def sample_theta_char_div(self):
@@ -164,8 +164,29 @@ class CycleCocycleSystem(Graph):
     def sample_theta_char_orientation(self, show=False):
         """Return a single theta characteristic orientation. Fast."""
         V = Graph(self).eulerian_bipartition()
-        G = _partition_to_theta_char_orientation(Graph(self), V, show)
-        return QuasiDiGraph(G, self)
+        return QuasiDiGraph(self._partition_to_ori(V, show), self)
+
+    def _partition_to_ori(V, show=False):
+        """
+        Accept a graph with a nonempty subset of the vertices. The subset and
+        complement are assumed to induce two Eulerian subgraphs.
+        Return an orientation which is Eulerian on the two subgraphs and
+        has a consistently oriented cut between them.
+        """
+        G = Graph(self)
+        if set(V) == set(G.vertices()):
+            return G.eulerian_orientation()
+        V_comp = G.vertex_complement(V)
+        G1 = G.subgraph(V).eulerian_orientation()
+        G2 = G.subgraph(V_comp).eulerian_orientation()
+        result = DiGraph([G.vertices(), []], multiedges=G.allows_multiple_edges())
+        result.add_edges(G.edge_boundary(V))
+        result.reverse_edges(result.incoming_edge_iterator(V))
+        result.add_edges(G1.edges())
+        result.add_edges(G2.edges())
+        if show:
+            result.show(vertex_colors={'b': V, 'r': V_comp})
+        return result
 
     def cycle_basis(self, oriented=True):
         """
@@ -179,7 +200,7 @@ class CycleCocycleSystem(Graph):
 
     """ Divisorial algorithms """
 
-    def linear_orientation_class(self, div, U=None):
+    def orientation_class(self, div, U=None):
         """
         Implements an algorithm from section 4 of Backman's 2017
         paper "Riemann-Roch Theory for Graph Orientations."
@@ -230,7 +251,6 @@ class CycleCocycleSystem(Graph):
                     return U
         return U
 
-
     """ Test associated objects """
 
     def is_theta_char(self, T):
@@ -267,8 +287,17 @@ class QuasiDiGraph(DiGraph):
     _unori and _bi.
     """
 
-    def __init__(self, data, ccs=None, bi=None, unori=None):
-        """Construct the quasidigraph."""
+    def __init__(self, data, ccs=None, bi=None, unori=None, autolabel=True):
+
+        self._ccs = None
+
+        # Check for distinct edge labels
+        if autolabel:
+            data = DiGraph(data)
+            if len(set(data.edge_labels())) < len(data.edges()):
+                data = data.autolabel()
+
+        # Construct the quasidigraph
         DiGraph.__init__(self, data)
 
         if bi is None:
@@ -283,14 +312,34 @@ class QuasiDiGraph(DiGraph):
                               format='vertices_and_edges')
 
         if ccs is None:
-            self._ccs = CycleCocycleSystem(self, base_orientation=self)
+            self._ccs = CycleCocycleSystem(Graph(self), base_orientation=self)
+        elif isinstance(ccs, CycleCocycleSystem):
+            self._ccs = ccs
         else:
-            if isinstance(ccs, CycleCocycleSystem):
-                self._ccs = ccs
-            else:
-                self._ccs = CycleCocycleSystem(ccs)
+            self._ccs = CycleCocycleSystem(ccs)
 
-    """ Basic class functionality """
+    """Operator overloading"""
+
+    def __add__(self, D):
+        """
+        Add a sandpile divisor D (on the right) to self, using the canonical
+        pic^0 torsor structure on orientations.
+        """
+        assert isinstance(D, SandpileDivisor) and D.deg() == 0, "Can only add a degree zero divisor to an orientation."
+        assert len(self.unori()) == 0 and len(self.biori()) == 0, "Cannot have unoriented or bioriented edges."
+        newD = self.chern_class()
+        return self._ccs.orientation_class(D + newD, self)
+
+    def __sub__(self, U):
+        """
+        Take the difference with U in the canonical pic^0 torsor structure
+        on orientations.
+        """
+        assert len(self.unori()) == 0 and len(self.biori()) == 0, "Cannot have unoriented or bioriented edges."
+        assert len(U.unori()) == 0 and len(U.biori()) == 0, "Cannot have unoriented or bioriented edges."
+        return self.chern_class() - U.chern_class()
+
+    """Basic class functionality"""
 
     def __repr__(self):
         """Return a brief description of the class."""
@@ -613,7 +662,7 @@ class QuasiDiGraph(DiGraph):
 
     """ Test associated objects """
 
-    def is_equivalent(self, U):
+    def equiv(self, U):
         """
         Check whether self and another quasiorientation have linearly
         equivalent Chern classes.
@@ -873,24 +922,3 @@ class OrCycMorphism(dict):
                         break
                 checked.add(l)
         return psi
-
-def _partition_to_theta_char_orientation(G, V, show=False):
-    """
-    Accept a graph with a nonempty subset of the vertices. The subset and
-    complement are assumed to induce two Eulerian subgraphs.
-    Return an orientation which is Eulerian on the two subgraphs and
-    has a consistently oriented cut between them.
-    """
-    if set(V) == set(G.vertices()):
-        return G.eulerian_orientation()
-    V_comp = G.vertex_complement(V)
-    G1 = G.subgraph(V).eulerian_orientation()
-    G2 = G.subgraph(V_comp).eulerian_orientation()
-    result = DiGraph([G.vertices(), []], multiedges=G.allows_multiple_edges())
-    result.add_edges(G.edge_boundary(V))
-    result.reverse_edges(result.incoming_edge_iterator(V))
-    result.add_edges(G1.edges())
-    result.add_edges(G2.edges())
-    if show:
-        result.show(vertex_colors={'b': V, 'r': V_comp})
-    return result

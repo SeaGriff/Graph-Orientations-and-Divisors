@@ -16,7 +16,7 @@ depend. I was unable to find other existing implementations of this material.
 ######
 
 The code here is a foundation: it is not optimized, and various features ought
-to be fleshed out. For example, the data structure supports bioriented edges, 
+to be fleshed out. For example, the data structure supports bioriented edges,
 but the algorithms have not been adapted for them.
 
 The intent is to produce something others can experiment with or
@@ -92,12 +92,6 @@ a DiGraph).
 ccs: The underlying CCS. If none, a CCS is created from the underlying
 undirected graph, and given a base orientation with the same edge directions
 as your QDG. This can be a more efficient way of producing a CCS.
-Note that if the edges a digraph Q are not uniquely labeled, the edges of
-the CCS of QuasiDiGraph(Q) will be autolabeled. However, QuasiDiGraph(Q) itself
-will not have labeled edges!
-For this reason, for such a Q the recommended pattern is:
-Q = QuasiDiGraph(Q).ccs().base_orientation()
-which produces a correctly labeled QDG.
 
 
 bi: An iterable of edges to be initially bioriented.
