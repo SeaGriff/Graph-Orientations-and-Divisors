@@ -1,5 +1,6 @@
-This project implements algorithms in or proceeding
-my forthcoming paper on the graph Torelli theorem.
+This project implements algorithms in or connected to
+my preprint on the graph Torelli theorem, located at 
+https://arxiv.org/abs/2112.07009.
 
 The underlying theory largely deals with generalized cycle
 cocycle systems (henceforth just cycle cocycle systems or CCSs).
