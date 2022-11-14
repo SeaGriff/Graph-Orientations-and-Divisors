@@ -2,8 +2,7 @@
 methods, in particular those that relate orientations to divisors.
 """
 
-#import newmethods
-load("newmethods.sage")
+import newmethods
 from sage.graphs.graph import Graph
 from sage.graphs.graph import DiGraph
 from sage.sandpiles.sandpile import Sandpile
