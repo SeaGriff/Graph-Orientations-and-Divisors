@@ -1,5 +1,6 @@
 """Here are some example constructions drawn from my paper and Backman's."""
 
+from CycleCocycleSystem import *
 
 def ex1():
     """

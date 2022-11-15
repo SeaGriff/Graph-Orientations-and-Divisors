@@ -2,11 +2,11 @@
 methods, in particular those that relate orientations to divisors.
 """
 
-import newmethods
 from sage.graphs.graph import Graph
 from sage.graphs.graph import DiGraph
 from sage.sandpiles.sandpile import Sandpile
 from sage.sandpiles.sandpile import SandpileDivisor
+from newmethods import *
 
 
 class CycleCocycleSystem(Graph):
