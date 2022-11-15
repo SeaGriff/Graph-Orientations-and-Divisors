@@ -128,3 +128,21 @@ G and H: Two CCSes.
 f: A dict encoding (by edge labels) a cyclic bijection. If G and H in fact have
 such an f, it can produced by the command:
 f = Matroid(G).isomorphism(Matroid(H))
+
+####
+
+to test:
+
+At Sage prompt, do
+
+sage: load('example_constructions.sage')
+sage: ex1()
+
+It should print
+
+(A graph with a cycle-cocycle reversal system, on 5 vertices and with 7 edges,
+ A graph with a cycle-cocycle reversal system, on 5 vertices and with 7 edges,
+ A morphism between cycle cocycle systems.)
+
+
+
