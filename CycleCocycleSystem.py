@@ -26,7 +26,7 @@ class CycleCocycleSystem(Graph):
         # Check for distinct edge labels
         if autolabel:
             data = Graph(data)
-            if len(set(data.edge_labels())) < len(data.edges()):
+            if len(set(data.edge_labels())) < data.size():
                 data = data.autolabel()
 
         # Build the graph
@@ -41,7 +41,7 @@ class CycleCocycleSystem(Graph):
         if base_orientation is None:
             self._base_orientation = QuasiDiGraph(self.random_orientation(),
                                                   self)
-        elif len(set(base_orientation.edge_labels())) < len(base_orientation.edges()):
+        elif len(set(base_orientation.edge_labels())) < base_orientation.size():
             self._base_orientation = QuasiDiGraph(base_orientation.autolabel(),
                                                   self)
         else:
@@ -57,7 +57,7 @@ class CycleCocycleSystem(Graph):
 
     def _repr_(self):
         return ("A graph with a cycle-cocycle reversal system, on {} vertices and with {} edges".format(
-        len(self.vertices()), len(self.edges())))
+        self.order(), self.size()))
 
     def show_unoriented(self, edge_labels=True, **kwargs):
         """Show the (unoriented) underlying graph, with edge labels by default."""
@@ -131,7 +131,7 @@ class CycleCocycleSystem(Graph):
 
     def genus(self):
         """Return the genus of the graph."""
-        return len(self.edges()) - len(self.vertices()) + 1
+        return self.size() - self.order() + 1
 
     def pic(self):
         """Return the picard group of the graph."""
@@ -173,16 +173,16 @@ class CycleCocycleSystem(Graph):
         has a consistently oriented cut between them.
         """
         G = Graph(self)
-        if set(V) == set(G.vertices()):
+        if set(V) == set(G.vertices(sort=False)):
             return G.eulerian_orientation()
         V_comp = G.vertex_complement(V)
         G1 = G.subgraph(V).eulerian_orientation()
         G2 = G.subgraph(V_comp).eulerian_orientation()
-        result = DiGraph([G.vertices(), []], multiedges=G.allows_multiple_edges())
+        result = DiGraph([G.vertices(sort=False), []], multiedges=G.allows_multiple_edges())
         result.add_edges(G.edge_boundary(V))
         result.reverse_edges(result.incoming_edge_iterator(V))
-        result.add_edges(G1.edges())
-        result.add_edges(G2.edges())
+        result.add_edges(G1.edges(sort=False))
+        result.add_edges(G2.edges(sort=False))
         if show:
             result.show(vertex_colors={'b': V, 'r': V_comp})
         return result
@@ -272,8 +272,8 @@ class CycleCocycleSystem(Graph):
         - if edge directions opposite: -1
         """
         if isinstance(U, DiGraph):
-            return edge_signs(self._base_orientation.edges(), U.edges())
-        return edge_signs(self._base_orientation.edges(), U)
+            return edge_signs(self._base_orientation.edges(sort=False), U.edges(sort=False))
+        return edge_signs(self._base_orientation.edges(sort=False), U)
 
 
 class QuasiDiGraph(DiGraph):
@@ -293,7 +293,7 @@ class QuasiDiGraph(DiGraph):
         # Check for distinct edge labels
         if autolabel:
             data = DiGraph(data)
-            if len(set(data.edge_labels())) < len(data.edges()):
+            if len(set(data.edge_labels())) < data.size():
                 data = data.autolabel()
 
         # Construct the quasidigraph
@@ -303,10 +303,10 @@ class QuasiDiGraph(DiGraph):
             bi = {}
         if unori is None:
             unori = {}
-        self._bi = DiGraph([self.vertices(), bi],
+        self._bi = DiGraph([self.vertices(sort=False), bi],
                            multiedges=self.allows_multiple_edges(),
                            format='vertices_and_edges')
-        self._unori = DiGraph([self.vertices(), unori],
+        self._unori = DiGraph([self.vertices(sort=False), unori],
                               multiedges=self.allows_multiple_edges(),
                               format='vertices_and_edges')
 
@@ -343,7 +343,7 @@ class QuasiDiGraph(DiGraph):
     def __repr__(self):
         """Return a brief description of the class."""
         return ("A quasiorientation on a graph with {} vertices and with {} edges".format(
-        len(self.vertices()), len(self.edges())))
+        self.order(), self.size()))
 
     def show(self, biori_color='blue', unori_color='red', edge_labels=True,
              **kwargs):
@@ -393,11 +393,11 @@ class QuasiDiGraph(DiGraph):
 
     def biori(self):
         """Return a list of bioriented edges."""
-        return self._bi.edges()
+        return self._bi.edges(sort=False)
 
     def unori(self):
         """Return a list of unoriented edges."""
-        return self._unori.edges()
+        return self._unori.edges(sort=False)
 
     def traverser(self):
         """
@@ -515,7 +515,7 @@ class QuasiDiGraph(DiGraph):
         Reverses all edges in the graph. Does not affect unoriented and
         bioriented edges.
         """
-        for e in self.edges():
+        for e in self.edges(sort=False):
             self.reverse_edge(e)
 
     def sources(self):
@@ -545,11 +545,11 @@ class QuasiDiGraph(DiGraph):
 
     def adjacent_to_unori(self):
         """Return a list of all vertices adjacent to an unoriented edge."""
-        return {v for v in self._unori.vertices() if self._unori.degree(v) > 0}
+        return {v for v in self._unori.vertices(sort=False) if self._unori.degree(v) > 0}
 
     def adjacent_to_biori(self):
         """Return a list of all vertices adjacent to a bioriented edge."""
-        return {v for v in self._bi.vertices() if self._bi.degree(v) > 0}
+        return {v for v in self._bi.vertices(sort=False) if self._bi.degree(v) > 0}
 
     def pivot_into_cut(self, X):
         """
@@ -568,7 +568,7 @@ class QuasiDiGraph(DiGraph):
     def chern_class(self):
         """Return the Chern class of the orientation."""
         D = self._ccs.pic().all_k_div(-1)
-        for e in self.traverser().edges():
+        for e in self.traverser().edges(sort=False):
             D[e[1]] += 1
         return D
 
@@ -578,7 +578,7 @@ class QuasiDiGraph(DiGraph):
         representative of a divisor.
         """
         if q is None:
-            q = self.vertices()[0]
+            q = self.vertices(sort=False)[0]
         self.make_paths(q)
 
     def edge_pivot(self, unori_edge, ori_edge):
@@ -627,7 +627,7 @@ class QuasiDiGraph(DiGraph):
         sourceless.
         """
         (U, X) = self.dhars(True)
-        if X == set(U.vertices()):
+        if X == set(U.vertices(sort=False)):
             return U
         U.reverse_edges(U.edge_boundary(X))
         return U.unfurl()
@@ -651,7 +651,7 @@ class QuasiDiGraph(DiGraph):
         unori_in_cut = self._unori.edge_boundary(X)
         if len(unori_in_cut) != 0:
             X.add(unori_in_cut[0][1])
-            if X == self.vertices():
+            if X == self.vertices(sort=False):
                 return self
             return self._mod_unfurl_it(S, X)
         self.reverse_edges(self.edge_boundary(X))
@@ -687,19 +687,19 @@ class QuasiDiGraph(DiGraph):
         - if edge directions match: 1
         - if edge directions opposite: -1
         """
-        return edge_signs(self._ccs.edges(), self.edges())
+        return edge_signs(self._ccs.edges(sort=False), self.edges(sort=False))
 
     def compare_to_self(self, U):
         """
         Return a dict indexed by edge labels in U, comparing the
         edges of U to edges of self. U may be either an orientation
-        of a collection of edges. The entries are
+        or a collection of edges. The entries are
         - if edge directions match: 1
-        - if edge directions opposite: -1
+        - if edge directions are opposite: -1
         """
         if isinstance(U, DiGraph):
-            return edge_signs(self.edges(), U.edges())
-        return edge_signs(self.edges(), U.edges())
+            return edge_signs(self.edges(sort=False), U.edges(sort=False))
+        return edge_signs(self.edges(sort=False), U.edges(sort=False))
 
     """ Lossy internal methods """
 
@@ -757,7 +757,7 @@ class OrCycMorphism(dict):
         if is_sorted:
             cycle = CCS.compare_to_base_ori(C)
         else:
-            edge_set = set({e for e in CCS.edges() if e[2] in C})
+            edge_set = set({e for e in CCS.edges(sort=False) if e[2] in C})
             T = Graph(CCS).subgraph(edges=edge_set)
             edge_C = T.cycle_basis("edge")[0]
             cycle = CCS.compare_to_base_ori(edge_C)
@@ -859,7 +859,7 @@ class OrCycMorphism(dict):
         edges = self._cod.label_edge_dict()
         result = self._cod._pic.zero_div()
         result[cod_base] += div.deg()
-        for e in self._cod.base_orientation().edges():
+        for e in self._cod.base_orientation().edges(sort=False):
             result[e[1]] += cod_jac_div[e[2]]
             result[e[0]] -= cod_jac_div[e[2]]
         return result
@@ -900,7 +900,7 @@ class OrCycMorphism(dict):
         ends = {G.base_edge()[0], G.base_edge()[1]}
 
         while checked != set(G.edge_labels()):
-            it = {e for e in G.edges() if e[0] in ends or e[1] in ends}
+            it = {e for e in G.edges(sort=False) if e[0] in ends or e[1] in ends}
             for e in it - {G_ref[s] for s in checked}:
                 l = e[2]
                 if e[0] in ends:
