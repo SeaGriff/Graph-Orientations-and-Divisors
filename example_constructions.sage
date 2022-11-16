@@ -61,5 +61,5 @@ def ex3():
     U.add_edges([(2*n, n + 12) for n in range(0, 6)])
     U.add_edges([(13,20), (17,19), (15,18)])
     U = QuasiDiGraph(U)
-    U.set_unori(DiGraph(U).subgraph(range(12)).edges())
+    U.set_unori(DiGraph(U).subgraph(range(12)).edges(sort=False))
     return U
