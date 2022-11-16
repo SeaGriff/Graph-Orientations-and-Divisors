@@ -75,8 +75,8 @@ def eulerian_bipartition(G):
     We have V = V(G) iff the graph has purely even degrees.
     """
     if G.has_multiple_edges():
-        preprocess_G = Graph([G.vertices(), []])
-        for (v, w) in itertools.combinations(G.vertices(), 2):
+        preprocess_G = Graph([G.vertices(sort=False), []])
+        for (v, w) in itertools.combinations(G.vertices(sort=False), 2):
             if is_odd(len(G.edge_boundary([v], [w], labels=False))):
                 preprocess_G.add_edge(v, w)
         result = _eulerian_bipartition_recur(preprocess_G, ([], []))
@@ -86,7 +86,7 @@ def eulerian_bipartition(G):
 
 
 def _eulerian_bipartition_recur(G, partition):
-    for v in G.vertices():
+    for v in G.vertices(sort=False):
         if is_odd(G.degree(v)):
             smallG = G.copy()
             smallG.delete_vertex(v)
@@ -102,12 +102,12 @@ def _eulerian_bipartition_recur(G, partition):
             else:
                 partition[0].extend([v])
             return partition
-    return (G.vertices(), [])
+    return (G.vertices(sort=False), [])
 
 
 def vertex_complement(G, V):
     """Return, as a set, the complement of a collection of vertices."""
-    return set(G.vertices()) - set(V)
+    return set(G.vertices(sort=False)) - set(V)
 
 
 def cycle_intersection_graph(G, show=False):
@@ -128,12 +128,12 @@ def autolabel(G, stringify=False):
     "0", "1", "2", ...
     """
     new = G.copy()
-    new.delete_edges(G.edges())
+    new.delete_edges(G.edges(sort=False))
     if stringify:
         new.add_edges([(e[1][0], e[1][1], str(e[0]))
-                      for e in enumerate(G.edges())])
+                      for e in enumerate(G.edges(sort=False))])
     else:
-        new.add_edges([(e[1][0], e[1][1], e[0]) for e in enumerate(G.edges())])
+        new.add_edges([(e[1][0], e[1][1], e[0]) for e in enumerate(G.edges(sort=False))])
     return new
 
 
@@ -143,7 +143,7 @@ def label_edge_dict(G):
     the edges themselves. Will exhibit undesired behaviour when edges are
     not uniquely labeled.
     """
-    return {e[2]: e for e in G.edges()}
+    return {e[2]: e for e in G.edges(sort=False)}
 
 
 def series_class(G, e):
@@ -173,7 +173,7 @@ def boundary_of_edges(G, X):
     are not in X.
     """
     verts = {e[0] for e in X}.union({e[1] for e in X})
-    return {e for e in set(G.edges()) - set(X) if e[0] in verts or e[1] in verts}
+    return {e for e in set(G.edges(sort=False)) - set(X) if e[0] in verts or e[1] in verts}
 
 
 def adjacent_to_ends(G, e):
@@ -214,7 +214,7 @@ def make_paths(G, origin, target=None):
     oriented path from q, or, if a target vertex is selected, until
     the target is accessible.
     """
-    vertex_set = set(G.vertices())
+    vertex_set = set(G.vertices(sort=False))
     reachable = G.reachable_from_vertex(origin)
     new_orientation = G.copy()
     while (target not in reachable) and not reachable == vertex_set:
@@ -235,7 +235,7 @@ def cycle_basis(G, output="edge"):
     result = []
     cycles = Graph(G).cycle_basis("edge")
     for C in cycles:
-        edges = edge_signs(G.edges(), C)
+        edges = edge_signs(G.edges(sort=False), C)
         new_cycle = []
         for e in C:
             if edges[e[2]] == 1:

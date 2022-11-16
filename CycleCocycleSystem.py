@@ -2,10 +2,9 @@
 methods, in particular those that relate orientations to divisors.
 """
 
-from sage.graphs.graph import Graph
-from sage.graphs.graph import DiGraph
-from sage.sandpiles.sandpile import Sandpile
-from sage.sandpiles.sandpile import SandpileDivisor
+from sage.graphs.graph import DiGraph, Graph
+from sage.sandpiles.sandpile import Sandpile, SandpileDivisor
+
 from newmethods import *
 
 
@@ -167,8 +166,8 @@ class CycleCocycleSystem(Graph):
 
     def _partition_to_ori(V, show=False):
         """
-        Accept a graph with a nonempty subset of the vertices. The subset and
-        complement are assumed to induce two Eulerian subgraphs.
+        Accept a nonempty subset V of the vertices. The subset and
+        complement are assumed to induce two Eulerian connected subgraphs.
         Return an orientation which is Eulerian on the two subgraphs and
         has a consistently oriented cut between them.
         """
