@@ -1,5 +1,41 @@
-"""Builds a cycle-cocycle system on top of a graph and implements associated
-methods, in particular those that relate orientations to divisors.
+# -*- coding: utf-8 -*-
+r"""
+This module implements the construction and manipulation of (generalized) cycle-cocycle systems on top of graphs.
+
+**Cycle-cocycle system basic operations:**
+
+.. csv-table::
+    :class: contentstable
+    :widths: 30, 70
+    :delim: |
+
+    TODO
+
+**Extracting invariants:**
+
+.. csv-table::
+    :class: contentstable
+    :widths: 30, 70
+    :delim: |
+
+    TODO
+
+**Algorithms concerning divisors and the sandpile group:**
+
+.. csv-table::
+    :class: contentstable
+    :widths: 30, 70
+    :delim: |
+
+    TODO
+
+**Algorithms concerning divisors and the sandpile group:**
+
+.. csv-table::
+    :class: contentstable
+    :widths: 30, 70
+    :delim: |
+
 """
 
 from sage.graphs.graph import DiGraph, Graph
@@ -7,11 +43,20 @@ from sage.sandpiles.sandpile import Sandpile, SandpileDivisor
 
 from newmethods import *
 
+''' TODO: better support for adding and removing edges'''
 
 class CycleCocycleSystem(Graph):
-    """
+    r"""
     Class for a generalized cycle-cocycle system - a graph with
     orientations and related divisorial data.
+
+    As implemented here, a cycle-cocycle system consists of:
+    1. A finite, undirected, connected base graph possibly with multiple edges between vertices.
+    2. A base orientation on the base graph.
+    3. The Picard group of the base graph.
+    4. Methods for producing quasidigraph structures on the base graph.
+    5. Methods for passing data between all of the above, as well as methods for interacting
+       with the graphic matroid associated to the base graph.
     """
 
     def __init__(self, data, base_orientation=None, base_edge=None,
@@ -19,7 +64,7 @@ class CycleCocycleSystem(Graph):
         """
         Construct the graph and associated data.
         The data parameter can be any input sufficient for Sage to build
-        a graph with.
+        a graph with. TODO more.
         """
 
         # Check for distinct edge labels
