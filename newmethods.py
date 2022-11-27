@@ -156,20 +156,12 @@ def series_class(G, e):
     return set(to_check.bridges(labels=True)).union({e})
 
 
-def count_spanning_trees(G):
-    """
-    Counts the spanning trees of G. Probably a bad implementation
-    """
-    return sum(1 for i in G.spanning_trees())
-
-
 GenericGraph.eulerian_bipartition = eulerian_bipartition
 GenericGraph.vertex_complement = vertex_complement
 GenericGraph.cycle_intersection_graph = cycle_intersection_graph
 GenericGraph.autolabel = autolabel
 GenericGraph.label_edge_dict = label_edge_dict
 GenericGraph.series_class = series_class
-GenericGraph.count_spanning_trees = count_spanning_trees
 
 
 """Graph methods"""
