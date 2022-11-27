@@ -164,7 +164,7 @@ class CycleCocycleSystem(Graph):
         V = Graph(self).eulerian_bipartition()
         return QuasiDiGraph(self._partition_to_ori(V, show), self)
 
-    def _partition_to_ori(V, show=False):
+    def _partition_to_ori(self, V, show=False):
         """
         Accept a nonempty subset V of the vertices. The subset and
         complement are assumed to induce two Eulerian connected subgraphs.
